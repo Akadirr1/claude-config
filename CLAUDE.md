@@ -1,4 +1,5 @@
 <!-- claude-config -->
+# claude-config
 ## Çalışma akışı
 - Plan uygularken `executing-plans` kullan, `subagent-driven-development` kullanma.
 - Plan bitince final review'ı `fable-reviewer` subagent'ına yaptır. Critical maddeleri düzelt, sonra bitir.
@@ -6,4 +7,4 @@
 - Testler "gereksiz kod" sayılmaz.
 - Oturum başında repoda `graphify-out/` yoksa `graphify update .` ile üret.
 - Kodu değiştiren her commit'ten önce `graphify update .` çalıştır ve `graphify-out/` klasörünü de commit'e ekle.
-- `.gitignore`'da `graphify-out/????-??-??/` satırı yoksa ekle (graphify'ın günlük yedek klasörleri, commit'e girmemeli).
+- `.gitignore`'da `graphify-out/????-??-??/` satırı yoksa ekle (graphify'ın günlük yedek klasörleri, commit'e girmemeli). `graphify-out/cache/` ve `graphify-out/manifest.json` da ignore'da olsun (dosya tarihi tutuyorlar, kod değişmeden diff üretiyorlar).
