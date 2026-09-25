@@ -6,7 +6,8 @@ LOG=/tmp/setup.log
 # Plugin'ler
 claude plugin marketplace add DietrichGebert/ponytail >> $LOG 2>&1 || echo "FAIL: ponytail marketplace" >> $LOG
 claude plugin install ponytail@ponytail >> $LOG 2>&1 || echo "FAIL: ponytail" >> $LOG
-claude plugin install superpowers@claude-plugins-official >> $LOG 2>&1 || echo "FAIL: superpowers" >> $LOG
+claude plugin marketplace add obra/superpowers-marketplace >> $LOG 2>&1 || echo "FAIL: superpowers marketplace" >> $LOG
+claude plugin install superpowers@superpowers-marketplace >> $LOG 2>&1 || echo "FAIL: superpowers" >> $LOG
 
 # Graphify (kendi bölümünü ~/.claude/CLAUDE.md'ye yazar)
 pip install graphifyy >> $LOG 2>&1 && graphify install >> $LOG 2>&1 || echo "FAIL: graphify" >> $LOG
