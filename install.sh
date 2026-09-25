@@ -4,6 +4,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG=/tmp/setup.log
 
 # Plugin'ler
+claude plugin marketplace add anthropics/claude-plugins-official >> $LOG 2>&1 || echo "FAIL: official marketplace" >> $LOG
 claude plugin marketplace add DietrichGebert/ponytail >> $LOG 2>&1 || echo "FAIL: ponytail marketplace" >> $LOG
 claude plugin install ponytail@ponytail >> $LOG 2>&1 || echo "FAIL: ponytail" >> $LOG
 claude plugin marketplace add obra/superpowers-marketplace >> $LOG 2>&1 || echo "FAIL: superpowers marketplace" >> $LOG
