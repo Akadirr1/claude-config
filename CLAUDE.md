@@ -6,3 +6,4 @@
 - Testler "gereksiz kod" sayılmaz.
 - Oturum başında repoda `graphify-out/` yoksa `graphify update .` ile üret.
 - Kodu değiştiren her commit'ten önce `graphify update .` çalıştır ve `graphify-out/` klasörünü de commit'e ekle.
+- `.gitignore`'da `graphify-out/????-??-??/` satırı yoksa ekle (graphify'ın günlük yedek klasörleri, commit'e girmemeli).
