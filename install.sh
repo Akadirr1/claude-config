@@ -13,6 +13,9 @@ claude plugin install superpowers@superpowers-marketplace >> $LOG 2>&1 || echo "
 # Graphify (kendi bölümünü ~/.claude/CLAUDE.md'ye yazar)
 pip install graphifyy >> $LOG 2>&1 && graphify install >> $LOG 2>&1 || echo "FAIL: graphify" >> $LOG
 
+# Archify (diyagram skill'i, ~/.claude/skills/ altına)
+npx -y skills add tt-a1i/archify --skill archify --agent claude-code --global --copy --yes >> $LOG 2>&1 || echo "FAIL: archify" >> $LOG
+
 # Agent'lar
 mkdir -p ~/.claude/agents
 cp "$DIR"/agents/*.md ~/.claude/agents/ && echo "OK: agents" >> $LOG || echo "FAIL: agents" >> $LOG
