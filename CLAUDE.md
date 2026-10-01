@@ -22,8 +22,8 @@
 - Commit yazarı kullanıcının git kimliğidir. Claude'u co-author ya da contributor olarak ekleme.
 
 ## Archify
-- Archify ile diyagram ürettiğinde çıktıyı `docs/diagrams/` altına hem JSON kaynağıyla hem HTML olarak commit'le ve pushla (sonraki session JSON'dan devam edebilsin).
-- Sonra HTML'in tarayıcıda açılabilir linkini ver: `https://raw.githack.com/<owner>/<repo>/<branch>/docs/diagrams/<dosya>.html`. Repo private ise bunu söyle.
+- Archify ile diyagram ürettiğinde HTML dosyasını bana doğrudan gönder; repoya ekleme.
+- Diyagramı repoda tutmamı istersem `docs/diagrams/` altına HTML'i JSON kaynağıyla birlikte commit'le (sonraki session JSON'dan devam edebilsin).
 
 ## Graphify
 - Oturum başında repoda `graphify-out/` yoksa `graphify update .` ile üret.
