@@ -20,6 +20,16 @@ npx -y skills add tt-a1i/archify --skill archify --agent claude-code --global --
 mkdir -p ~/.claude/agents
 cp "$DIR"/agents/*.md ~/.claude/agents/ && echo "OK: agents" >> $LOG || echo "FAIL: agents" >> $LOG
 
+# Ayarlar: Claude atfını kapat, varsayılan effort. Mevcut settings.json'ı (graphify hook'ları, plugin'ler) koruyarak birleştirir.
+python3 - >> $LOG 2>&1 << 'PY' && echo "OK: settings" >> $LOG || echo "FAIL: settings" >> $LOG
+import json, os
+p = os.path.expanduser("~/.claude/settings.json")
+s = json.load(open(p)) if os.path.exists(p) else {}
+s["attribution"] = {"commit": "", "pr": ""}
+s["effortLevel"] = "xhigh"
+json.dump(s, open(p, "w"), indent=2)
+PY
+
 # Kurallar: bizim bölüm zaten varsa tekrar eklemez
 touch ~/.claude/CLAUDE.md
 grep -q "<!-- claude-config -->" ~/.claude/CLAUDE.md || cat "$DIR/CLAUDE.md" >> ~/.claude/CLAUDE.md
