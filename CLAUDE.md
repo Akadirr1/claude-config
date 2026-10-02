@@ -1,31 +1,21 @@
 <!-- claude-config -->
 # claude-config
-## Çalışma akışı
-- Plan uygularken `executing-plans` kullan, `subagent-driven-development` kullanma.
-- Kod yazmadan önce sırayla sor: gerekli mi → stdlib/native çözüm var mı → repoda zaten var mı. Hiçbiri yoksa minimum kodu yaz. Bu kural plan yazarken de geçerli.
-- Testler "gereksiz kod" sayılmaz.
+## Çalışma
+- Testler ponytail açısından gereksiz kod sayılmaz.
+- İstenenin dışında bir sorun ya da daha iyi bir yol görürsen uygulamadan önce söyle.
 
-## Kendi kodunu teslimden önce review et
-- Kod değiştiren her turda, son mesajından önce diff üzerinde iki review çalıştır: kod review'ı ve güvenlik review'ı. Değişiklik bariz doğru görünse de ikisi de her zaman çalışır; güvenlik review'ı, kod review'ının "tasarım kararı" deyip geçtiği şeyi yakalar.
-- İkisini aynı mesajda iki ayrı subagent olarak başlat ki paralel çalışsınlar. Her birine diff komutunu, gereken bağlamı ve hangi review olduğunu (CODE / SECURITY) ver.
-- Agent'ı değişikliğe göre seç, kendi güvenine göre değil:
-  - `reviewer-xhigh`: büyük değişiklik ve aynı zamanda para, kimlik doğrulama veya kullanıcı verisine dokunuyor.
-  - `reviewer-high`: büyük değişiklik, refactor ya da para, kimlik doğrulama veya kullanıcı verisine (başvuru formları, KVKK kapsamındaki veriler dahil) dokunan her değişiklik.
-  - `reviewer-medium`: sıradan çok dosyalı değişiklik. Tek satırlık değişiklik veya rename de bu seviyede iki review'dan geçer.
-- Gerçek bulguları düzelt, ilgili doğrulamayı (test, lint, build) yeniden çalıştır.
-- Son mesajda her review için tek satır yaz, "bulgu yok" dahil, ki çalıştıkları belli olsun. Uygulamamaya karar verdiğin bulguyu gerekçesiyle açıkça söyle, sessizce atlama.
-- Subagent çalıştıramıyorsan iki review'ı kendin yap ve bunu açıkça yaz. Bağımsız review çalışmadıysa çalıştı deme.
-- Plan bitince bunlara ek olarak bütün branch'i bir kez `fable-reviewer`'a review ettir. Critical maddeleri düzelt, sonra bitir.
+## Review
+Kod değiştiren her turun sonunda, son mesajdan önce diff'e iki review'ı paralel subagent olarak çalıştır: CODE ve SECURITY. Güvenlik review'ı kod review'ının tasarım kararı sayıp geçtiği şeyi yakalar, bu yüzden küçük değişiklikte de ikisi birden çalışır.
+- Seviye: büyük değişiklik ve para, kimlik doğrulama ya da kullanıcı verisi → `reviewer-xhigh`. Büyük değişiklik, refactor ya da para, kimlik doğrulama veya kullanıcı verisine (başvuru formları dahil) dokunan değişiklik → `reviewer-high`. Geri kalan her şey → `reviewer-medium`.
+- Son mesajda her review'ın sonucunu tek satırla yaz, "bulgu yok" dahil. Uygulamadığın bulguyu gerekçesiyle söyle. Subagent çalışmadıysa bunu açıkça belirt.
+- Plan bitince bütün branch'i bir kez `fable-reviewer`'a review ettir.
 
 ## Commit ve PR
-- Commit mesajlarına ve PR açıklamalarına Claude atfı ekleme: "Co-Authored-By: Claude", "Generated with Claude Code", "Claude-Session:" satırı ve session linki olmasın.
-- Commit yazarı kullanıcının git kimliğidir. Claude'u co-author ya da contributor olarak ekleme.
+- Commit ve PR'lara Claude atfı ekleme: Co-Authored-By, "Generated with Claude Code", Claude-Session satırı ve session linki olmasın.
 
 ## Archify
-- Archify ile diyagram ürettiğinde HTML dosyasını bana doğrudan gönder; repoya ekleme.
-- Diyagramı repoda tutmamı istersem `docs/diagrams/` altına HTML'i JSON kaynağıyla birlikte commit'le (sonraki session JSON'dan devam edebilsin).
+- Diyagramı bana doğrudan gönder. Repoda tutmamı istersem `docs/diagrams/` altına JSON kaynağıyla birlikte commit'le.
 
 ## Graphify
-- Oturum başında repoda `graphify-out/` yoksa `graphify update .` ile üret.
-- Kodu değiştiren her commit'ten önce `graphify update .` çalıştır ve `graphify-out/` klasörünü de commit'e ekle.
-- `.gitignore`'da `graphify-out/????-??-??/` satırı yoksa ekle (graphify'ın günlük yedek klasörleri, commit'e girmemeli). `graphify-out/cache/` ve `graphify-out/manifest.json` da ignore'da olsun (dosya tarihi tutuyorlar, kod değişmeden diff üretiyorlar).
+- Repoda `graphify-out/` yoksa oturum başında `graphify update .` ile üret. Kodu değiştiren commit'lerden önce güncelle ve `graphify-out/`'u da commit'le.
+- `.gitignore`'da şunlar olsun: `graphify-out/????-??-??/`, `graphify-out/cache/`, `graphify-out/manifest.json`.
