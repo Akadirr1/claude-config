@@ -42,6 +42,16 @@ function describe(e) {
     case 'Grep':
     case 'Glob':
       return e.tool + ' ' + short(e.pattern, 36)
+    case 'WebFetch':
+      try {
+        return 'WebFetch ' + new URL(e.url).host
+      } catch {
+        return e.url ? 'WebFetch ' + short(e.url, 40) : 'WebFetch'
+      }
+    case 'WebSearch':
+      return 'WebSearch: ' + short(e.query, 48)
+    case 'Agent':
+      return 'Agent: ' + short(e.description, 40)
     default:
       return String(e.tool)
   }

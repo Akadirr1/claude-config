@@ -82,6 +82,31 @@ describe('wf-monitor', () => {
     await $.classic.Stop({ hook_event_name: 'Stop', session_id: 's', transcript_path: '/t', cwd: '/w', stop_hook_active: false, background_tasks: [] })
     expect((await $.command.run(WF)).text).toContain('feature · bitti')
   })
+  test('WebFetch host, WebSearch sorgu, Agent description gösterir', async ($, on) => {
+    const clock = world(on, ['terminal'])
+    on('tool.call', { tool: 'WebFetch' }, () => ({ result: {} }))
+    on('tool.call', { tool: 'WebSearch' }, () => ({ result: {} }))
+    on('tool.call', { tool: 'Agent' }, () => ({ result: {} }))
+    await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+    await $.tool.call({ tool: 'Workflow', name: 'feature' })
+    const lastStep = async call => {
+      await $.tool.call({ ...call, agentId: 'abc12345zz' })
+      await clock.advance(2100)
+      return textOf(await $.ui.render(PANE))
+    }
+    const fetched = await lastStep({ tool: 'WebFetch', url: 'https://docs.example.com/a/b?q=1' })
+    expect(fetched).toContain('WebFetch docs.example.com')
+    expect(fetched).not.toContain('/a/b')
+    expect(fetched).not.toContain('https:')
+    expect(await lastStep({ tool: 'WebFetch', url: 'not a url' })).toContain('WebFetch not a url')
+    expect((await lastStep({ tool: 'WebFetch' })).endsWith('abc12345 WebFetch')).toBe(true)
+    expect(await lastStep({ tool: 'WebSearch', query: 'vitest mock clock' })).toContain('WebSearch: vitest mock clock')
+    expect(await lastStep({ tool: 'WebSearch', query: 'x'.repeat(100) })).toContain('WebSearch: ' + 'x'.repeat(47) + '…')
+    const agent = await lastStep({ tool: 'Agent', description: 'Kod review', prompt: 'gizli prompt' })
+    expect(agent).toContain('Agent: Kod review')
+    expect(agent).not.toContain('gizli prompt')
+    expect((await $.command.run(WF)).text).toContain('Agent: Kod review')
+  })
   test('URL ve token varsa durumu dashboard\'a POST eder', async ($, on) => {
     const posts = []
     const clock = world(on, [], { WF_MONITOR_URL: 'https://wf.example/api/push', WF_MONITOR_TOKEN: 'sir' })
