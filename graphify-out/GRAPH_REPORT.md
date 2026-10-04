@@ -1,7 +1,7 @@
 # Graph Report - claude-config  (2026-10-04)
 
 ## Corpus Check
-- 17 files · ~18,129 words
+- 17 files · ~18,123 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: (none) 2, .css 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `d0cef4ed`
+- Built from commit: `c530f174`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -65,7 +65,7 @@ Nodes (8): input, list, MAX_ROUNDS, meta, QA, REVIEW, SPEC, task
 
 ### Community 2 - "claude-config"
 Cohesion: 0.22
-Nodes (8): Archify, claude-config, Commit ve PR, Graphify, Orkestrasyon, Review, Çalışma, Öncelik
+Nodes (8): Archify, claude-config, Commit ve PR, Graphify, Orkestrasyon (yalnız kullanıcı isterse), Review (yalnız kullanıcı isterse), Çalışma, Öncelik
 
 ### Community 3 - "register.js"
 Cohesion: 0.11
