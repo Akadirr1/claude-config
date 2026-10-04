@@ -7,17 +7,54 @@ import { initLive, renderLive, live, openDetail, narrow } from './live.js'
 import { initCosts, renderCosts, refreshCosts } from './costs.js'
 import { initHistory, renderHistory } from './history.js'
 
-// ---------- tema (varsayılan koyu)
+// ---------- temalar: menüden seçilir, seçim cihazda kalır
+const THEMES = [
+  ['dark', 'Obsidyen', ['#12110f', '#1b1916', '#ede5d6', '#d95926']],
+  ['light', 'Parşömen', ['#f3eee4', '#fffbf3', '#1d1913', '#eb6834']],
+  ['kehribar', 'Kehribar CRT', ['#0b0a08', '#12100b', '#ffcf6e', '#ffb000']],
+  ['orman', 'Orman', ['#0c120e', '#121a15', '#e6efdf', '#7fd36b']],
+  ['gul', 'Gül', ['#120d10', '#1a1317', '#f6e6ee', '#ff7ab8']],
+  ['kontrast', 'Yüksek kontrast', ['#000000', '#111111', '#ffffff', '#ffe600']],
+]
+const themeOk = t => THEMES.some(x => x[0] === t)
 function setTheme(t, save) {
+  if (!themeOk(t)) t = 'dark'
   document.documentElement.dataset.theme = t
   if (save) pref.set('theme', t)
+  const meta = document.querySelector('meta[name="theme-color"]')
+  if (meta) meta.setAttribute('content', THEMES.find(x => x[0] === t)[2][0])
   const b = $('theme')
-  b.textContent = t === 'light' ? '☾' : '☀'
-  b.setAttribute('aria-label', t === 'light' ? 'Koyu temaya geç' : 'Açık temaya geç')
+  b.setAttribute('aria-label', `Tema: ${THEMES.find(x => x[0] === t)[1]}`)
   b.title = b.getAttribute('aria-label')
 }
-setTheme(pref.get('theme', 'dark') === 'light' ? 'light' : 'dark')
-$('theme').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light', true))
+setTheme(pref.get('theme', 'dark'))
+const themeMenu = h('div', { class: 'theme-menu', role: 'menu', hidden: true })
+$('theme').after(themeMenu)
+function closeThemes(focus) {
+  themeMenu.hidden = true
+  $('theme').setAttribute('aria-expanded', 'false')
+  if (focus) $('theme').focus()
+}
+$('theme').setAttribute('aria-haspopup', 'menu')
+$('theme').addEventListener('click', () => {
+  if (!themeMenu.hidden) return closeThemes()
+  const cur = document.documentElement.dataset.theme
+  themeMenu.replaceChildren(...THEMES.map(([k, name, sw]) => h('button', {
+    type: 'button', role: 'menuitemradio', class: 'theme-o', 'aria-checked': String(k === cur),
+    onclick: () => { setTheme(k, true); closeThemes(true); render() },
+  }, h('span', { class: 'sw', 'aria-hidden': 'true' }, sw.map(c => h('i', { style: `background:${c}` }))), h('span', { class: 'theme-t', text: name }))))
+  themeMenu.hidden = false
+  $('theme').setAttribute('aria-expanded', 'true')
+  themeMenu.querySelector('[aria-checked="true"]')?.focus()
+})
+themeMenu.addEventListener('keydown', e => {
+  const items = [...themeMenu.querySelectorAll('.theme-o')]
+  const i = items.indexOf(document.activeElement)
+  if (e.key === 'ArrowDown') { items[(i + 1) % items.length].focus(); e.preventDefault() }
+  else if (e.key === 'ArrowUp') { items[(i - 1 + items.length) % items.length].focus(); e.preventDefault() }
+  else if (e.key === 'Escape') closeThemes(true)
+})
+document.addEventListener('click', e => { if (!themeMenu.hidden && !e.target.closest('.theme-menu, #theme')) closeThemes() })
 
 // ---------- yönlendirme: #canli, #maliyet, #gecmis (session derin bağlantısı: #canli/<sid>)
 const ROUTES = { canli: 'live', maliyet: 'costs', gecmis: 'history' }

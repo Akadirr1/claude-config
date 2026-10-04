@@ -73,6 +73,42 @@
   --h0: #ece4d4; --h1: #f3d79a; --h2: #e9b552; --h3: #c98500; --h4: #8a5a00;
 }
 
+/* ---------- ek temalar: yüzey, mürekkep ve vurgu değişir; sınıf renkleri doğrulanmış koyu paletten kalır */
+:root[data-theme="kehribar"] {
+  /* kehribar CRT: siyah zemin, fosfor mürekkep, durağan hafif tarama çizgisi */
+  --bg: #0b0a08; --bg-dot: rgba(255, 176, 0, .05); --surface: #12100b; --surface2: #1a160e;
+  --line: #2d2516; --line2: #4a3c20; --ink: #ffcf6e; --dim: #c9a052; --faint: #7d6634;
+  --c-orchestrator: #ffe2a0; --loop: #fff07a; --ok: #c7e86a; --graph: #ffb347;
+  --h0: #1a160e; --h1: #3d2e0c; --h2: #6e500f; --h3: #a87810; --h4: #ffb000;
+}
+:root[data-theme="kehribar"] body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 70;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, .14) 0 1px, transparent 1px 3px);
+}
+:root[data-theme="orman"] {
+  /* orman: koyu yosun zemin, krem mürekkep */
+  --bg: #0c120e; --bg-dot: rgba(214, 236, 206, .05); --surface: #121a15; --surface2: #18221b;
+  --line: #24332a; --line2: #3a4f41; --ink: #e6efdf; --dim: #9fb3a2; --faint: #5f7564;
+  --c-orchestrator: #f2f0d0; --loop: #e8e45c; --ok: #a6e07a; --graph: #b9a8ff;
+  --h0: #18221b; --h1: #23412c; --h2: #2f6b40; --h3: #3f9a56; --h4: #7fd36b;
+}
+:root[data-theme="gul"] {
+  /* gül: mürdüm-kömür zemin, pembe vurgu */
+  --bg: #120d10; --bg-dot: rgba(255, 214, 230, .045); --surface: #1a1317; --surface2: #23191e;
+  --line: #34252d; --line2: #523a46; --ink: #f6e6ee; --dim: #bf9fae; --faint: #7a6070;
+  --c-orchestrator: #ffe4ef; --loop: #ffd166; --ok: #9fdc8c; --graph: #c8b6ff;
+  --h0: #23191e; --h1: #4a2236; --h2: #7a2f55; --h3: #b44480; --h4: #ff7ab8;
+}
+:root[data-theme="kontrast"] {
+  /* yüksek kontrast: saf siyah, beyaz mürekkep, kalın çizgiler */
+  --bg: #000; --bg-dot: transparent; --surface: #000; --surface2: #111;
+  --line: #8a8a8a; --line2: #e0e0e0; --ink: #fff; --dim: #e0e0e0; --faint: #b8b8b8;
+  --c-orchestrator: #fff; --loop: #ffe600; --ok: #7dff7d; --fail: #ff8a65; --warn: #ffd000; --graph: #c9b8ff;
+  --shadow: none; --glow: .8;
+  --h0: #111; --h1: #3a3a3a; --h2: #777; --h3: #b5b5b5; --h4: #fff;
+}
+:root[data-theme="kontrast"] .panel, :root[data-theme="kontrast"] .node, :root[data-theme="kontrast"] .kpi { border-width: 2px; }
+
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
@@ -164,6 +200,17 @@ a { color: inherit; }
 .ghost.icon { min-width: 40px; padding: 0 8px; font: 600 13px var(--mono); }
 .ghost:hover { background: var(--surface); border-color: var(--line2); }
 .logout { margin: 0; }
+.theme-w { position: relative; }
+.theme-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 45; width: 230px; padding: 6px;
+  display: grid; gap: 2px; background: var(--surface); border: 1px solid var(--line2); border-radius: 12px; box-shadow: var(--shadow);
+}
+.theme-o { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 10px; min-height: 40px; padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; text-align: left; }
+.theme-o:hover, .theme-o[aria-checked="true"] { background: var(--surface2); }
+.theme-o[aria-checked="true"]::after { content: "✓"; color: var(--ok); font-weight: 700; }
+.sw { display: flex; height: 20px; border-radius: 6px; overflow: hidden; border: 1px solid var(--line2); }
+.sw i { flex: 1; }
+.theme-t { font: 600 13px var(--mono); }
 
 /* ---------- yerleşim */
 .layout { padding: 16px 20px 28px; }
