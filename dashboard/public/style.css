@@ -390,6 +390,8 @@ button.ev-b:hover { background: var(--surface2); }
 }
 @media (max-width: 760px) {
   :root { --glw: 120px; }
+  /* iOS Safari 16px altı form alanına odaklanınca sayfayı büyütür ve geri küçültmez */
+  .pick select, .login-form input { font-size: 16px; }
   .top { padding: 8px 16px; gap: 8px 10px; }
   .pickers { order: 3; flex-basis: 100%; }
   .pick-k { display: none; }
