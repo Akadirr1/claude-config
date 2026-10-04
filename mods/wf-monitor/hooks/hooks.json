@@ -1,4 +1,6 @@
 {
-  "description": "Workflow tool çağrısını yakalar, transcriptDir'i izler, Stop hook'unda bitişi algılar, pane ve /wf komutunu sağlar",
-  "modules": ["./register.js"]
+  "description": "Workflow tool çağrısını yakalar, transcriptDir'deki journal ve agent meta dosyalarını izler, bitişi bildirim/TaskStop/Stop hook'undan algılar, pane, /wf komutu ve dashboard push'u sağlar",
+  "modules": [
+    "./register.js"
+  ]
 }
