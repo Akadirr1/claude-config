@@ -275,8 +275,8 @@ test('push: yanlış Bearer IP başına sayılır, kilitliyken 429; login ayrı 
   assert.ok(Number(locked.headers.get('retry-after')) > 0)
   assert.equal((await s.login(TOKEN, '4.4.4.4')).headers.get('location'), '/', 'push hatası login\'i kilitlemez')
   for (let i = 0; i < 5; i++) await s.login('yanlis-token-0123456789', '5.5.5.5')
+  assert.equal((await s.login(TOKEN, '5.5.5.5')).headers.get('location'), '/login?e=rate', 'login kilitli')
   assert.equal((await s.push(body([]), undefined, { 'CF-Connecting-IP': '5.5.5.5' })).status, 204, 'login hatası push\'u kilitlemez')
-  assert.equal((await s.push(body([]), undefined, { 'CF-Connecting-IP': '5.5.5.5' })).status, 204)
   s.clock.t += 15 * 60 * 1000 + 1
   assert.equal((await s.push(body([]), undefined, ip)).status, 204, 'pencere bitince açılır')
 })

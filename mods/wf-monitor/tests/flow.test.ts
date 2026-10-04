@@ -58,7 +58,7 @@ function textOf(t) {
 // files: transcriptDir altındaki dosyalar (ad -> içerik); ctl: testlerin değiştirdiği davranışlar
 function world(on, surfaces, env = {}, rows = ROUND1, repo = { root: '/w/claude-config', remote: 'https://github.com/Akadirr1/claude-config' }) {
   const clock = mock.clock(on, { now: 1000 })
-  const ctl = { slowList: false, slowMeta: false, noSize: false, postOk: true, postHang: false, lists: 0 }
+  const ctl = { slowList: false, slowMeta: false, noSize: false, postOk: true, postHang: false, lists: 0, okPosts: 0 }
   const files = { 'journal.jsonl': jsonl(rows) }
   for (const [id, m] of Object.entries(META)) files[`agent-${id}.meta.json`] = JSON.stringify(m)
   const reads = []
@@ -99,6 +99,7 @@ function world(on, surfaces, env = {}, rows = ROUND1, repo = { root: '/w/claude-
   on('http.fetch', async ($, e) => {
     posts.push(e)
     if (ctl.postHang) await clock.sleep(30_000)
+    if (ctl.postOk) ctl.okPosts++
     return { value: { status: ctl.postOk ? 204 : 503, ok: ctl.postOk, headers: {}, text: '' } }
   })
   on('tool.call', { tool: 'Workflow' }, ($, e) => ({
@@ -330,6 +331,9 @@ describe('wf-monitor', () => {
     expect(mask('git push -u origin feat/x')).toBe('git push -u origin feat/x')
     expect(mask('curl -u KEY123: x')).toBe('curl -u *** x')
     expect(mask('curl -u :TOK123 x')).toBe('curl -u *** x')
+    expect(mask('curl -u "bob:hunter 2" x')).toBe('curl -u *** x')
+    expect(mask('curl -ubob:pw x')).toBe('curl -u *** x')
+    expect(mask('curl --user bob:pw x')).toBe('curl -u *** x')
     for (const k of [
       'sk_live_abcdefgh1234',
       'sk_test_abcdefgh1234',
@@ -385,12 +389,15 @@ describe('wf-monitor', () => {
     await clock.advance(2000)
     expect(posts.length).toBe(n + 1) // geri çekilme: ikinci tekrar 4 sn sonra
     await clock.advance(120_000)
-    expect(posts.length <= n + 8).toBe(true) // 2 dk'da 2 sn'de bir değil, en fazla 60 sn'de bir
+    expect(posts.length).toBe(n + 6) // 8, 16, 32, 60, 60 sn aralıkla 5 tekrar
     ctl.postOk = true
+    const k = posts.length
+    const okBefore = ctl.okPosts
     await clock.advance(60_000)
-    const m = posts.length
-    await clock.advance(40_000)
-    expect(posts.length).toBe(m) // teslim edildi, poller durdu
+    expect(posts.length).toBe(k + 1) // 60 sn tavanında tekrar ve teslim
+    expect(ctl.okPosts).toBe(okBefore + 1)
+    await clock.advance(120_000)
+    expect(posts.length).toBe(k + 1) // teslim edildi, poller durdu
   })
 
   test('fit: son durumu teslim edilmemiş run atılmaz, önce kısaltılır', async () => {

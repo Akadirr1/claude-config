@@ -55,7 +55,7 @@ export function mask(s) {
     .replace(/-----BEGIN [A-Z ]{0,40}PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]{0,40}PRIVATE KEY-----|$)/g, '[private key ***]')
     .replace(/(:\/\/)[^\s/@]{1,256}@/g, '$1***@')
     .replace(/(--(?:password|passwd|pass|token|secret)(?:=|\s+))(?:"[^"]*"|'[^']*'|\S+)/gi, '$1***')
-    .replace(/(^|\s)-u\s+(?=\S*:)\S+/g, '$1-u ***')
+    .replace(/(^|\s)(?:-u\s*|--user[=\s]+)(?:"[^"]*"|'[^']*'|(?=\S*:)\S+)/g, '$1-u ***')
     .replace(/\b(sk-)[\w-]{8,}/g, '$1***')
     .replace(/\b(sk_live_|sk_test_|rk_live_|rk_test_|pk_live_)[A-Za-z0-9]{8,}/g, '$1***')
     .replace(/\b(glpat-)[\w-]{16,}/g, '$1***')
