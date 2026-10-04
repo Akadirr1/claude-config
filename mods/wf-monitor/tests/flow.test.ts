@@ -328,6 +328,8 @@ describe('wf-monitor', () => {
     expect(mask('tool --token=abc123 --passwd "a b"')).toBe('tool --token=*** --passwd ***')
     expect(mask('curl -u bob:hunter2 https://x')).toBe('curl -u *** https://x')
     expect(mask('git push -u origin feat/x')).toBe('git push -u origin feat/x')
+    expect(mask('curl -u KEY123: x')).toBe('curl -u *** x')
+    expect(mask('curl -u :TOK123 x')).toBe('curl -u *** x')
     for (const k of [
       'sk_live_abcdefgh1234',
       'sk_test_abcdefgh1234',
