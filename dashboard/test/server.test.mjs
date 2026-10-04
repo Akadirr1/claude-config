@@ -78,6 +78,8 @@ function sse(base, cookie) {
 
 const run = (taskId, startedAt, extra = {}) => ({ taskId, name: 'feature', status: 'running', startedAt, endedAt: null, phases: [], agents: [], edges: [], ...extra })
 const body = (runs, extra = {}) => ({ v: 2, session: { id: 's1', repo: 'o/r' }, sentAt: 1000, runs, ...extra })
+const usage = (model, x) => ({ byModel: { [model]: { in: 0, out: 0, cr: 0, cw: 0, n: 1, ...x } } })
+const v3 = (extra = {}) => ({ v: 3, session: { id: 's1', repo: 'o/r' }, sentAt: 1000, epoch: 1, runs: [], subs: [], ...extra })
 
 test('başarılı giriş: 303 / ve güvenli imzalı cookie', async t => {
   const s = await start(t)
@@ -216,7 +218,7 @@ test('path traversal 404', async t => {
   assert.equal((await s.req('/%2e%2e/server.mjs', { headers: { Cookie: c } })).status, 404)
 })
 
-test('SSE: snapshot, session olayı, run birleştirme ve 20 run sınırı', async t => {
+test('SSE: snapshot (index + canlı görünüm), session olayı yalnız değişenleri taşır, eski run kalır', async t => {
   const s = await start(t)
   const c = await s.cookie()
   await s.push(body([run('a', 1), run('b', 2)]))
@@ -227,27 +229,23 @@ test('SSE: snapshot, session olayı, run birleştirme ve 20 run sınırı', asyn
   const snap = await es.next()
   assert.equal(snap.event, 'snapshot')
   const sd = JSON.parse(snap.data[0].slice(6))
-  assert.equal(sd.sessions.length, 1)
-  assert.deepEqual(sd.sessions[0].runs.map(r => r.taskId), ['a', 'b'])
-  assert.equal(sd.sessions[0].sentAt, 1000)
+  assert.equal(sd.index.length, 1)
+  assert.equal(sd.index[0].id, 's1')
+  assert.deepEqual(sd.live[0].runs.map(r => r.taskId), ['a', 'b'])
+  assert.equal(sd.live[0].sentAt, 1000)
   assert.equal(typeof sd.serverNow, 'number')
 
   await s.push(body([run('b', 2, { status: 'done' }), run('c', 3)], { sentAt: 'x' }))
   const ev = await es.next()
   assert.equal(ev.event, 'session')
-  const { session } = JSON.parse(ev.data[0].slice(6))
-  assert.deepEqual(session.runs.map(r => r.taskId), ['a', 'b', 'c'], 'eski run kalır')
-  assert.equal(session.runs[1].status, 'done', 'yeni run eskinin yerine geçer')
-  assert.equal(session.sentAt, session.receivedAt, 'sayı olmayan sentAt → receivedAt')
-
-  await s.push(body(Array.from({ length: 25 }, (_, i) => run('r' + i, 100 + i))))
-  const many = JSON.parse((await es.next()).data[0].slice(6)).session.runs
-  assert.equal(many.length, 20)
-  assert.equal(many[0].taskId, 'r5')
-  assert.equal(many.at(-1).taskId, 'r24')
+  const { summary, patch } = JSON.parse(ev.data[0].slice(6))
+  assert.deepEqual(patch.runs.map(r => r.taskId), ['b', 'c'], 'yama yalnız push edilenleri taşır')
+  assert.equal(patch.runs[0].status, 'done')
+  assert.deepEqual(summary.runs.map(r => r.taskId), ['a', 'b', 'c'], 'eski run kalır')
+  assert.equal(patch.sentAt, patch.receivedAt, 'sayı olmayan sentAt → receivedAt')
 
   await s.push(body([run('x', 1)], { session: { id: 's2', repo: 'o/r2' } }))
-  assert.equal(JSON.parse((await es.next()).data[0].slice(6)).session.id, 's2', 'yalnız o session gönderilir')
+  assert.equal(JSON.parse((await es.next()).data[0].slice(6)).summary.id, 's2', 'yalnız o session gönderilir')
 })
 
 test('SSE: data satırına enjeksiyon yapılamaz', async t => {
@@ -255,13 +253,13 @@ test('SSE: data satırına enjeksiyon yapılamaz', async t => {
   const es = sse(s.base, await s.cookie())
   t.after(es.close)
   await es.next()
-  const label = 'x\n\ndata: x\r\nevent: remove\n<script>alert(1)</script> '
+  const label = 'x\n\ndata: x\r\nevent: remove\n<script>alert(1)</script> '
   await s.push(body([run('a', 1, { agents: [{ id: 'a1', label }] })]))
   const ev = await es.next()
   assert.equal(ev.event, 'session')
   assert.equal(ev.data.length, 1)
   assert.equal(ev.raw.split('\n').length, 2, 'event + tek data satırı')
-  assert.equal(JSON.parse(ev.data[0].slice(6)).session.runs[0].agents[0].label, label)
+  assert.equal(JSON.parse(ev.data[0].slice(6)).patch.runs[0].agents[0].label, label)
 })
 
 const data = ev => JSON.parse(ev.data[0].slice(6))
@@ -309,37 +307,22 @@ test('push: stringify edilemeyen (derin iç içe) gövde 400 ve kaydedilmez', as
   assert.equal(res.status, 400)
   const es = sse(s.base, await s.cookie())
   t.after(es.close)
-  assert.equal(data(await es.next()).sessions.length, 0)
+  assert.equal(data(await es.next()).index.length, 0)
 })
 
-test('push: en fazla 50 session, en eskisi atılır ve remove yayınlanır', async t => {
-  const s = await start(t)
-  for (let i = 0; i < 50; i++) {
-    s.clock.t++
-    await s.push(body([], { session: { id: 'id' + i, repo: 'r' } }))
-  }
-  const es = sse(s.base, await s.cookie())
-  t.after(es.close)
-  assert.equal(data(await es.next()).sessions.length, 50)
-  s.clock.t++
-  await s.push(body([], { session: { id: 'yeni', repo: 'r' } }))
-  const rm = await es.next()
-  assert.equal(rm.event, 'remove')
-  assert.equal(data(rm).id, 'id0')
-  assert.equal(data(await es.next()).session.id, 'yeni')
-})
-
-test('push: bayat sentAt 204 ama yok sayılır', async t => {
+test('push: bayat sentAt (aynı epoch) 204 ama yok sayılır; yeni epoch kabul', async t => {
   const s = await start(t)
   const es = sse(s.base, await s.cookie())
   t.after(es.close)
   await es.next()
   await s.push(body([run('a', 1)], { sentAt: 2000 }))
-  assert.equal(data(await es.next()).session.sentAt, 2000)
+  assert.equal(data(await es.next()).patch.sentAt, 2000)
   assert.equal((await s.push(body([run('eski', 2)], { sentAt: 1500 }))).status, 204)
   await s.push(body([run('b', 3)], { sentAt: 2000 }))
-  const { session } = data(await es.next())
-  assert.deepEqual(session.runs.map(r => r.taskId), ['a', 'b'], 'bayat push yayınlanmadı ve kaydedilmedi')
+  assert.deepEqual(data(await es.next()).summary.runs.map(r => r.taskId), ['a', 'b'], 'bayat push kaydedilmedi')
+  // mod yeniden başladı: yeni epoch, saat geride olsa da kabul
+  await s.push({ ...v3(), epoch: 2, sentAt: 100, runs: [run('c', 4)] })
+  assert.deepEqual(data(await es.next()).summary.runs.map(r => r.taskId), ['a', 'b', 'c'])
 })
 
 test('CSRF: login/logout çapraz site 403, push etkilenmez', async t => {
@@ -382,4 +365,78 @@ test('SSE: okumayan istemci tampon 1 MB\'ı aşınca koparılır', async t => {
   await closed
   // Kopan istemci kümeden çıktı: sonraki yayın hata vermez
   assert.equal((await s.push(body([run('b', 2)]))).status, 204)
+})
+
+test('v3: orkestratör epoch başına toplanır, alt agent ve workflow agent sınıf + maliyet alır', async t => {
+  const s = await start(t)
+  const c = await s.cookie()
+  const main = u => ({ status: 'tool', goal: 'panel token analizi', steps: [], usage: usage('claude-opus-5-5', u) })
+  await s.push(v3({ main: main({ in: 1000, out: 500 }) }))
+  await s.push(v3({ sentAt: 2000, main: main({ in: 2000, out: 1000 }) })) // aynı epoch: kümülatif, yerine geçer
+  await s.push(v3({ epoch: 2, sentAt: 3000, main: main({ in: 1e6 }), // yeni süreç: eklenir
+    subs: [{ id: 'sub1', label: 'Map server routes', agentType: 'Explore', status: 'done', startedAt: 10, endedAt: 20, usage: usage('claude-sonnet-5-5', { in: 1e6, out: 1e5 }), graph: { g: 3, r: 1 } }],
+    runs: [run('w1', 5, { agents: [{ id: 'ag1', label: 'security-review #1', phase: 'Review', usage: usage('claude-haiku-4-5', { cr: 1e6 }) }] })],
+  }))
+  const v = (await (await s.req('/api/sessions/s1', { headers: { Cookie: c } })).json()).view
+  assert.equal(v.main.cls, 'orchestrator')
+  assert.equal(v.main.tokens.in, 2000 + 1e6)
+  assert.equal(v.main.goal, 'panel token analizi')
+  assert.equal(v.subs[0].cls, 'explore')
+  assert.ok(Math.abs(v.subs[0].tokens.cost - (2 + 1)) < 1e-9, 'sonnet 5.5: 1M giriş $2 + 100k çıkış $1')
+  assert.equal(v.runs[0].agents[0].cls, 'review')
+  assert.ok(Math.abs(v.runs[0].agents[0].tokens.cost - 0.1) < 1e-9, 'haiku cache okuma $0.10/M')
+  assert.equal(v.totals.agents, 2)
+  assert.equal(v.totals.graph.g, 3)
+  assert.ok(v.totals.byClass.explore.cost > 0 && v.totals.byClass.orchestrator.cost > 0)
+})
+
+test('v3: geçersiz gövdeler 400', async t => {
+  const s = await start(t)
+  for (const b of [v3({ subs: [{}] }), v3({ subs: 'x' }), v3({ main: [] }), { ...v3(), v: 4 }, v3({ session: { id: '' } })]) {
+    assert.equal((await s.push(b)).status, 400, JSON.stringify(b).slice(0, 60))
+  }
+})
+
+test('kalıcılık: sunucu yeniden başlayınca defter diskten yüklenir', async t => {
+  const data = mkdtempSync(join(tmpdir(), 'wf-data-'))
+  t.after(() => rmSync(data, { recursive: true, force: true }))
+  const a = await start(t, { dataDir: data })
+  await a.push(v3({ subs: [{ id: 'x1', label: 'qa #1', status: 'done', usage: usage('claude-opus-5-5', { out: 1e6 }) }] }))
+  a.server.store.flush()
+  const b = await start(t, { dataDir: data })
+  const c = await b.cookie()
+  const idx = (await (await b.req('/api/sessions', { headers: { Cookie: c } })).json()).index
+  assert.equal(idx.length, 1)
+  assert.equal(idx[0].totals.cost, 20)
+  const v = (await (await b.req('/api/sessions/s1', { headers: { Cookie: c } })).json()).view
+  assert.equal(v.subs[0].cls, 'qa')
+})
+
+test('analiz ve CSV: sınıf/model/gün kırılımı, graphify karşılaştırması, CSV enjeksiyonu önlenir', async t => {
+  const s = await start(t)
+  const c = await s.cookie()
+  const now = s.clock.t
+  await s.push(v3({ subs: [
+    { id: 'g1', label: 'dev #1', startedAt: now - 1000, endedAt: now, usage: usage('claude-opus-5-5', { in: 100 }), graph: { g: 2, r: 1 } },
+    { id: 'g2', label: '=HYPERLINK("x")', startedAt: now - 1000, endedAt: now, usage: usage('claude-opus-5-5', { in: 900 }), graph: { g: 0, r: 9 } },
+  ] }))
+  const st = await (await s.req('/api/stats?days=7&tz=180', { headers: { Cookie: c } })).json()
+  assert.equal(st.totals.agents, 2)
+  assert.equal(st.byDay.length, 7)
+  assert.equal(st.graphify.with.n, 1)
+  assert.equal(st.graphify.with.avgIn, 100)
+  assert.equal(st.graphify.without.avgIn, 900)
+  assert.deepEqual(st.repos, ['o/r'])
+  assert.ok(st.byClass.find(x => x.key === 'dev'))
+  const csv = await (await s.req('/api/export.csv?days=0', { headers: { Cookie: c } })).text()
+  assert.match(csv.split('\n')[0], /^sid,repo,kind/)
+  assert.match(csv, /'=HYPERLINK/, 'formül hücresi kaçışlanır')
+})
+
+test('/api/* oturum ister; bilinmeyen session 404', async t => {
+  const s = await start(t)
+  for (const p of ['/api/sessions', '/api/sessions/s1', '/api/stats', '/api/export.csv']) assert.equal((await s.req(p)).status, 401, p)
+  const c = await s.cookie()
+  assert.equal((await s.req('/api/sessions/yok', { headers: { Cookie: c } })).status, 404)
+  assert.equal((await s.req('/api/sessions/%E0%A4%A', { headers: { Cookie: c } })).status, 400)
 })

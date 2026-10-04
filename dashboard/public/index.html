@@ -4,37 +4,56 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#12110f">
 <title>wf · akış</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="/style.css">
 <script type="module" src="/app.js"></script>
 </head>
-<body class="app">
+<body class="app" data-route="live">
 <header class="top">
   <div class="brand">
     <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path class="logo-line" d="M7 16h18M16 7v18"/><polygon class="logo-ba" points="7,10 13,16 7,22 1,16"/><circle class="logo-dev" cx="16" cy="7" r="5"/><rect class="logo-rev" x="20" y="11" width="10" height="10" rx="2"/><polygon class="logo-qa" points="16,20 21,29 11,29"/></svg>
     <span class="brand-t">wf<span class="brand-dot">·</span>akış</span>
   </div>
-  <div class="pickers">
+  <nav class="tabs" aria-label="Görünüm">
+    <a class="tab" href="#canli" data-r="canli">Canlı</a>
+    <a class="tab" href="#maliyet" data-r="maliyet">Maliyet</a>
+    <a class="tab" href="#gecmis" data-r="gecmis">Geçmiş</a>
+  </nav>
+  <div id="pickers" class="pickers">
     <label class="pick"><span class="pick-k">Session</span><select id="sess" disabled></select></label>
-    <label class="pick"><span class="pick-k">Run</span><select id="run" disabled></select></label>
+    <label class="pick"><span class="pick-k">Workflow</span><select id="run" disabled></select></label>
   </div>
   <div class="meta">
+    <span id="ticker" class="ticker num" data-live="off" title="çalışan session'ların toplam maliyeti">sakin</span>
     <span id="ago" class="ago">veri bekleniyor</span>
     <span id="conn" class="conn" data-state="wait" role="status"><i aria-hidden="true"></i><span id="conn-t">bağlanıyor</span></span>
-    <button id="theme" class="ghost" type="button">Açık tema</button>
+    <button id="kbd" class="ghost icon" type="button" aria-label="Komut paleti (Ctrl+K)" title="Komut paleti (Ctrl+K)">⌘K</button>
+    <button id="bell" class="ghost icon" type="button" aria-pressed="false">🔕</button>
+    <button id="theme" class="ghost icon" type="button">☀</button>
     <form class="logout" method="post" action="/logout"><button class="ghost" type="submit">Çıkış</button></form>
   </div>
 </header>
 
-<main class="layout">
-  <section id="runbar" class="runbar" aria-label="Run özeti"></section>
+<main id="view-live" class="layout live">
+  <section id="sessbar" class="runbar" aria-label="Session özeti"></section>
 
-  <section class="panel graph-panel" aria-labelledby="h-graph">
+  <section class="panel orch-panel" aria-labelledby="h-orch">
     <div class="phead">
-      <h2 id="h-graph">Akış</h2>
+      <h2 id="h-orch">Orkestra</h2>
+      <span class="phint">Şef ve doğurduğu agent'lar</span>
       <div id="legend" class="legend"></div>
     </div>
+    <div class="orch-body">
+      <div id="orch" class="orch"></div>
+      <div id="constellation" class="constellation"></div>
+    </div>
+  </section>
+
+  <section id="graph-panel" class="panel graph-panel" aria-labelledby="h-graph">
+    <div id="runhead" class="phead"></div>
     <div id="graph" class="graph"></div>
   </section>
 
@@ -47,12 +66,24 @@
   </section>
 
   <section class="panel gantt-panel" aria-labelledby="h-gantt">
-    <div class="phead"><h2 id="h-gantt">Zaman çubukları</h2><span class="phint">kim, ne zaman, ne kadar</span></div>
+    <div class="phead"><h2 id="h-gantt">Zaman çubukları</h2><span class="phint">Şef, alt agent'lar ve workflow'lar; kim ne zaman çalıştı</span></div>
     <div id="gantt" class="gantt"></div>
   </section>
 </main>
 
+<main id="view-costs" class="layout costs" hidden></main>
+<main id="view-history" class="layout history" hidden></main>
+
 <div id="scrim" class="scrim" hidden></div>
 <aside id="detail" class="detail" hidden aria-labelledby="d-title"></aside>
+
+<div id="palette" class="palette" hidden>
+  <div class="pal-card" role="dialog" aria-modal="true" aria-label="Komut paleti">
+    <input id="pal-in" class="pal-in" type="search" placeholder="session, workflow ya da agent ara…" role="combobox" aria-expanded="true" aria-controls="pal-list" autocomplete="off" spellcheck="false">
+    <ul id="pal-list" class="pal-list" role="listbox"></ul>
+    <p class="pal-help muted">↑↓ seç · Enter git · Esc kapat</p>
+  </div>
+</div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
 </body>
 </html>
