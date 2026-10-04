@@ -2021,7 +2021,7 @@
       "node_kind": "heading",
       "norm_label": "archify",
       "source_file": "CLAUDE.md",
-      "source_location": "L23"
+      "source_location": "L28"
     },
     {
       "id": "claude_claude_config",
@@ -2045,7 +2045,7 @@
       "node_kind": "heading",
       "norm_label": "commit ve pr",
       "source_file": "CLAUDE.md",
-      "source_location": "L20"
+      "source_location": "L24"
     },
     {
       "id": "claude_graphify",
@@ -2057,31 +2057,31 @@
       "node_kind": "heading",
       "norm_label": "graphify",
       "source_file": "CLAUDE.md",
-      "source_location": "L26"
+      "source_location": "L31"
     },
     {
-      "id": "claude_orkestrasyon",
-      "label": "Orkestrasyon",
+      "id": "claude_orkestrasyon_yaln\u0131z_kullan\u0131c\u0131_isterse",
+      "label": "Orkestrasyon (yaln\u0131z kullan\u0131c\u0131 isterse)",
       "_origin": "ast",
       "community": 2,
       "community_name": "claude-config",
       "file_type": "document",
       "node_kind": "heading",
-      "norm_label": "orkestrasyon",
+      "norm_label": "orkestrasyon (yaln\u0131z kullan\u0131c\u0131 isterse)",
       "source_file": "CLAUDE.md",
-      "source_location": "L7"
+      "source_location": "L12"
     },
     {
-      "id": "claude_review",
-      "label": "Review",
+      "id": "claude_review_yaln\u0131z_kullan\u0131c\u0131_isterse",
+      "label": "Review (yaln\u0131z kullan\u0131c\u0131 isterse)",
       "_origin": "ast",
       "community": 2,
       "community_name": "claude-config",
       "file_type": "document",
       "node_kind": "heading",
-      "norm_label": "review",
+      "norm_label": "review (yaln\u0131z kullan\u0131c\u0131 isterse)",
       "source_file": "CLAUDE.md",
-      "source_location": "L13"
+      "source_location": "L17"
     },
     {
       "id": "claude_\u00e7al\u0131\u015fma",
@@ -2092,6 +2092,18 @@
       "file_type": "document",
       "node_kind": "heading",
       "norm_label": "cal\u0131sma",
+      "source_file": "CLAUDE.md",
+      "source_location": "L7"
+    },
+    {
+      "id": "claude_\u00f6ncelik",
+      "label": "\u00d6ncelik",
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "claude-config",
+      "file_type": "document",
+      "node_kind": "heading",
+      "norm_label": "oncelik",
       "source_file": "CLAUDE.md",
       "source_location": "L3"
     },
@@ -2508,18 +2520,6 @@
       "type": "external"
     },
     {
-      "id": "ref_node_crypto",
-      "label": "ref_node_crypto",
-      "_origin": "semantic",
-      "community": 0,
-      "community_name": "createServer",
-      "external": true,
-      "file_type": "concept",
-      "norm_label": "ref_node_crypto",
-      "source_file": "",
-      "type": "external"
-    },
-    {
       "id": "ref_node_fs",
       "label": "ref_node_fs",
       "_origin": "semantic",
@@ -2600,6 +2600,18 @@
       "external": true,
       "file_type": "concept",
       "norm_label": "ref_claude_code",
+      "source_file": "",
+      "type": "external"
+    },
+    {
+      "id": "ref_node_crypto",
+      "label": "ref_node_crypto",
+      "_origin": "semantic",
+      "community": 5,
+      "community_name": "simulate.mjs",
+      "external": true,
+      "file_type": "concept",
+      "norm_label": "ref_node_crypto",
       "source_file": "",
       "type": "external"
     }
@@ -5882,13 +5894,24 @@
     },
     {
       "source": "claude_claude_config",
-      "target": "claude_review",
+      "target": "claude_orkestrasyon_yaln\u0131z_kullan\u0131c\u0131_isterse",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "CLAUDE.md",
-      "source_location": "L13",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "claude_claude_config",
+      "target": "claude_review_yaln\u0131z_kullan\u0131c\u0131_isterse",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "source_location": "L17",
       "weight": 1.0
     },
     {
@@ -5899,7 +5922,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "CLAUDE.md",
-      "source_location": "L20",
+      "source_location": "L24",
       "weight": 1.0
     },
     {
@@ -5910,23 +5933,12 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "CLAUDE.md",
-      "source_location": "L23",
+      "source_location": "L28",
       "weight": 1.0
     },
     {
       "source": "claude_claude_config",
-      "target": "claude_graphify",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "CLAUDE.md",
-      "source_location": "L26",
-      "weight": 1.0
-    },
-    {
-      "source": "claude_claude_config",
-      "target": "claude_\u00e7al\u0131\u015fma",
+      "target": "claude_\u00f6ncelik",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -5937,7 +5949,18 @@
     },
     {
       "source": "claude_claude_config",
-      "target": "claude_orkestrasyon",
+      "target": "claude_graphify",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "source_location": "L31",
+      "weight": 1.0
+    },
+    {
+      "source": "claude_claude_config",
+      "target": "claude_\u00e7al\u0131\u015fma",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -7827,5 +7850,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "027e19a4e964b47106e8b977316ac2c7a8760582"
+  "built_at_commit": "c530f174187fa24c45929f36d859d9e7d17da440"
 }
