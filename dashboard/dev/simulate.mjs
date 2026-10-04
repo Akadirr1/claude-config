@@ -2,6 +2,7 @@
 // Panel için sahte /feature run'ları: gerçek run başlatmadan sözleşmedeki v:2 payload'larını
 // adım adım POST /api/push'a yollar (her adımda session'ın bütün run listesi, mod gibi).
 // Kullanım: WF_MONITOR_TOKEN=... node dashboard/dev/simulate.mjs [http://localhost:3000] [--fast]
+// Cookie her zaman Secure: düz http://localhost ile Chrome/Firefox çalışır, Safari çalışmaz.
 import { randomBytes } from 'node:crypto'
 
 const argv = process.argv.slice(2)

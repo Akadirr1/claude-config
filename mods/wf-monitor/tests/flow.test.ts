@@ -327,6 +327,7 @@ describe('wf-monitor', () => {
     expect(mask('mysql --password hunter2 -h x')).toBe('mysql --password *** -h x')
     expect(mask('tool --token=abc123 --passwd "a b"')).toBe('tool --token=*** --passwd ***')
     expect(mask('curl -u bob:hunter2 https://x')).toBe('curl -u *** https://x')
+    expect(mask('git push -u origin feat/x')).toBe('git push -u origin feat/x')
     for (const k of [
       'sk_live_abcdefgh1234',
       'sk_test_abcdefgh1234',
@@ -376,12 +377,15 @@ describe('wf-monitor', () => {
     await $.prompt.submit(notify('t1', 'completed'))
     await clock.settle()
     const n = posts.length
-    await clock.advance(2000)
-    await clock.advance(2000)
-    expect(posts.length).toBe(n + 2) // aynı içerik, heartbeat beklemeden yeniden
+    await clock.advance(4000)
+    expect(posts.length).toBe(n + 1) // aynı içerik, heartbeat beklemeden yeniden
     expect(lastPost(posts).body.runs[0].status).toBe('done')
-    ctl.postOk = true
     await clock.advance(2000)
+    expect(posts.length).toBe(n + 1) // geri çekilme: ikinci tekrar 4 sn sonra
+    await clock.advance(120_000)
+    expect(posts.length <= n + 8).toBe(true) // 2 dk'da 2 sn'de bir değil, en fazla 60 sn'de bir
+    ctl.postOk = true
+    await clock.advance(60_000)
     const m = posts.length
     await clock.advance(40_000)
     expect(posts.length).toBe(m) // teslim edildi, poller durdu

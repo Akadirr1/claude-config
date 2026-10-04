@@ -266,14 +266,16 @@ test('SSE: data satırına enjeksiyon yapılamaz', async t => {
 
 const data = ev => JSON.parse(ev.data[0].slice(6))
 
-test('push: yanlış Bearer IP başına sayılır, kilitliyken 429 ve login de kilitli', async t => {
+test('push: yanlış Bearer IP başına sayılır, kilitliyken 429; login ayrı sayılır', async t => {
   const s = await start(t)
   const ip = { 'CF-Connecting-IP': '4.4.4.4' }
   for (let i = 0; i < 5; i++) assert.equal((await s.push(body([]), 'Bearer yanlis', ip)).status, 401)
   const locked = await s.push(body([]), undefined, ip)
   assert.equal(locked.status, 429)
   assert.ok(Number(locked.headers.get('retry-after')) > 0)
-  assert.equal((await s.login(TOKEN, '4.4.4.4')).headers.get('location'), '/login?e=rate', 'aynı tablo')
+  assert.equal((await s.login(TOKEN, '4.4.4.4')).headers.get('location'), '/', 'push hatası login\'i kilitlemez')
+  for (let i = 0; i < 5; i++) await s.login('yanlis-token-0123456789', '5.5.5.5')
+  assert.equal((await s.push(body([]), undefined, { 'CF-Connecting-IP': '5.5.5.5' })).status, 204, 'login hatası push\'u kilitlemez')
   assert.equal((await s.push(body([]), undefined, { 'CF-Connecting-IP': '5.5.5.5' })).status, 204)
   s.clock.t += 15 * 60 * 1000 + 1
   assert.equal((await s.push(body([]), undefined, ip)).status, 204, 'pencere bitince açılır')

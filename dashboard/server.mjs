@@ -1,6 +1,8 @@
 // wf-dashboard: wf-monitor mod'unun cloud session'lardan gönderdiği durumu canlı gösterir.
 // Bağımlılık yok. Ortam: WF_MONITOR_TOKEN (zorunlu, ≥16; /api/push), WF_VIEW_TOKEN (opsiyonel, ≥16; giriş formu,
 // yoksa WF_MONITOR_TOKEN), PORT (3000), WF_PUBLIC_DIR (./public).
+// Cloudflare (tercihen Tunnel) arkasında çalışmalı: hız sınırı CF-Connecting-IP'ye güvenir; origin doğrudan
+// erişilebilirse başlık sahtelenip sınır atlanabilir.
 import http from 'node:http'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, extname } from 'node:path'
@@ -133,7 +135,7 @@ export function createServer({ token, viewToken, publicDir = fileURLToPath(new U
     res.writeHead(303, { Location: location, 'Cache-Control': 'no-store', ...extra }).end()
   }
 
-  // Hız sınırı (login ve push ortak): kilitliyse kalan saniye, değilse 0.
+  // Hız sınırı (login ve push ayrı sayaç, aynı tablo): kilitliyse kalan saniye, değilse 0.
   function lockedFor(ip, t) {
     const f = failures.get(ip)
     if (f && f.resetAt <= t) failures.delete(ip)
@@ -153,7 +155,7 @@ export function createServer({ token, viewToken, publicDir = fileURLToPath(new U
   }
 
   async function login(req, res) {
-    const ip = ipOf(req)
+    const ip = 'login:' + ipOf(req)
     const body = await readBody(req, MAX_LOGIN)
     if (body === null) return res.writeHead(413).end()
     const t = now()
@@ -171,7 +173,7 @@ export function createServer({ token, viewToken, publicDir = fileURLToPath(new U
   }
 
   async function push(req, res) {
-    const ip = ipOf(req)
+    const ip = 'push:' + ipOf(req)
     const t = now()
     const wait = lockedFor(ip, t)
     if (wait) return res.writeHead(429, { 'Retry-After': String(wait) }).end()

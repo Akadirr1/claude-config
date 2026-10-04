@@ -31,6 +31,8 @@ let poller = null // $.clock.every tutamacı ({ cancel })
 let nowMs = 0
 let lastKey = ''
 let lastPushAt = 0
+let failStreak = 0 // ardışık başarısız push; geri çekilme için
+let nextTryAt = 0
 
 // ---- saf yardımcılar ----
 
@@ -53,7 +55,7 @@ export function mask(s) {
     .replace(/-----BEGIN [A-Z ]{0,40}PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]{0,40}PRIVATE KEY-----|$)/g, '[private key ***]')
     .replace(/(:\/\/)[^\s/@]{1,256}@/g, '$1***@')
     .replace(/(--(?:password|passwd|pass|token|secret)(?:=|\s+))(?:"[^"]*"|'[^']*'|\S+)/gi, '$1***')
-    .replace(/(^|\s)-u\s+\S+/g, '$1-u ***')
+    .replace(/(^|\s)-u\s+[^\s:]+:\S+/g, '$1-u ***')
     .replace(/\b(sk-)[\w-]{8,}/g, '$1***')
     .replace(/\b(sk_live_|sk_test_|rk_live_|rk_test_|pk_live_)[A-Za-z0-9]{8,}/g, '$1***')
     .replace(/\b(glpat-)[\w-]{16,}/g, '$1***')
@@ -307,7 +309,7 @@ function pick() {
 }
 
 async function push() {
-  if (!host || !host.post || runs.size === 0) return
+  if (!host || !host.post || runs.size === 0 || nowMs < nextTryAt) return
   const sent = pick()
   const list = maskDeep(sent.map(view))
   const key = JSON.stringify(list)
@@ -318,9 +320,13 @@ async function push() {
   const s = fit(body, new Set(sent.filter(r => r.status !== 'running' && !r.delivered).map(r => r.taskId)))
   const ok = await host.post(s).then(res => res?.ok === true, () => false)
   if (!ok) {
-    lastKey = '' // sonraki poll aynı durumu yeniden dener
+    lastKey = '' // aynı durum yeniden denenir; 2 sn'den 60 sn'ye üstel geri çekilerek
+    failStreak++
+    nextTryAt = nowMs + Math.min(60_000, 1000 * 2 ** failStreak)
     return
   }
+  failStreak = 0
+  nextTryAt = 0
   for (const v of body.runs) {
     const r = runs.get(v.taskId)
     if (r && v.status !== 'running' && r.status === v.status) r.delivered = true
