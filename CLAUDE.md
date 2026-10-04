@@ -15,6 +15,7 @@ Kod değiştiren her turun sonunda, son mesajdan önce diff'e iki review'ı para
 - Seviye: büyük değişiklik ve para, kimlik doğrulama ya da kullanıcı verisi → `reviewer-xhigh`. Büyük değişiklik, refactor ya da para, kimlik doğrulama veya kullanıcı verisine (başvuru formları dahil) dokunan değişiklik → `reviewer-high`. Geri kalan her şey → `reviewer-medium`.
 - Son mesajda her review'ın sonucunu tek satırla yaz, "bulgu yok" dahil. Uygulamadığın bulguyu gerekçesiyle söyle. Subagent çalışmadıysa bunu açıkça belirt.
 - Plan bitince bütün branch'i bir kez `fable-reviewer`'a review ettir.
+- `/feature` workflow'u CODE+SECURITY review'ı kendi içinde yapar; onun sonucu geldiğinde bu iki review'ı tekrar çalıştırma.
 
 ## Commit ve PR
 - Commit ve PR'lara Claude atfı ekleme: Co-Authored-By, "Generated with Claude Code", Claude-Session satırı ve session linki olmasın.

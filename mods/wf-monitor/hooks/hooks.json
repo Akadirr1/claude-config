@@ -1,0 +1,4 @@
+{
+  "description": "Workflow tool çağrısını yakalar, transcriptDir'i izler, Stop hook'unda bitişi algılar, pane ve /wf komutunu sağlar",
+  "modules": ["./register.js"]
+}
