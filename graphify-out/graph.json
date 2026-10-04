@@ -14,7 +14,7 @@
       "file_type": "code",
       "norm_label": "run",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L39"
+      "source_location": "L40"
     },
     {
       "id": "dashboard_dev_simulate_session",
@@ -27,7 +27,7 @@
       "file_type": "code",
       "norm_label": "session",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L22"
+      "source_location": "L23"
     },
     {
       "id": "dashboard_server_createserver",
@@ -39,7 +39,7 @@
       "file_type": "code",
       "norm_label": "createserver()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L87"
+      "source_location": "L89"
     },
     {
       "id": "dashboard_server_createserver_authed",
@@ -51,7 +51,7 @@
       "file_type": "code",
       "norm_label": "authed()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L102"
+      "source_location": "L104"
     },
     {
       "id": "dashboard_server_createserver_events",
@@ -63,7 +63,7 @@
       "file_type": "code",
       "norm_label": "events()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L227"
+      "source_location": "L229"
     },
     {
       "id": "dashboard_server_createserver_fail",
@@ -75,7 +75,7 @@
       "file_type": "code",
       "norm_label": "fail()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L143"
+      "source_location": "L145"
     },
     {
       "id": "dashboard_server_createserver_lockedfor",
@@ -87,7 +87,7 @@
       "file_type": "code",
       "norm_label": "lockedfor()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L137"
+      "source_location": "L139"
     },
     {
       "id": "dashboard_server_createserver_login",
@@ -99,7 +99,7 @@
       "file_type": "code",
       "norm_label": "login()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L155"
+      "source_location": "L157"
     },
     {
       "id": "dashboard_server_createserver_push",
@@ -111,7 +111,7 @@
       "file_type": "code",
       "norm_label": "push()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L173"
+      "source_location": "L175"
     },
     {
       "id": "dashboard_server_createserver_redirect",
@@ -123,7 +123,7 @@
       "file_type": "code",
       "norm_label": "redirect()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L132"
+      "source_location": "L134"
     },
     {
       "id": "dashboard_server_createserver_sweep",
@@ -135,7 +135,7 @@
       "file_type": "code",
       "norm_label": "sweep()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L126"
+      "source_location": "L128"
     },
     {
       "id": "dashboard_server_createserver_write",
@@ -147,7 +147,7 @@
       "file_type": "code",
       "norm_label": "write()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L111"
+      "source_location": "L113"
     },
     {
       "id": "dashboard_server_crosssite",
@@ -159,7 +159,7 @@
       "file_type": "code",
       "norm_label": "crosssite()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L75"
+      "source_location": "L77"
     },
     {
       "id": "dashboard_server_ipof",
@@ -171,7 +171,7 @@
       "file_type": "code",
       "norm_label": "ipof()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L72"
+      "source_location": "L74"
     },
     {
       "id": "dashboard_server_loadstatic",
@@ -183,7 +183,7 @@
       "file_type": "code",
       "norm_label": "loadstatic()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L62"
+      "source_location": "L64"
     },
     {
       "id": "dashboard_server_readbody",
@@ -195,7 +195,7 @@
       "file_type": "code",
       "norm_label": "readbody()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L48"
+      "source_location": "L50"
     },
     {
       "id": "dashboard_server_same",
@@ -207,7 +207,7 @@
       "file_type": "code",
       "norm_label": "same()",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L41"
+      "source_location": "L43"
     },
     {
       "id": "dashboard_test_server_test_body",
@@ -663,7 +663,7 @@
       "file_type": "code",
       "norm_label": "clip()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L42"
+      "source_location": "L44"
     },
     {
       "id": "mods_wf_monitor_hooks_register_counts",
@@ -675,7 +675,7 @@
       "file_type": "code",
       "norm_label": "counts()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L332"
+      "source_location": "L338"
     },
     {
       "id": "mods_wf_monitor_hooks_register_cut",
@@ -687,7 +687,7 @@
       "file_type": "code",
       "norm_label": "cut()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L79"
+      "source_location": "L81"
     },
     {
       "id": "mods_wf_monitor_hooks_register_describe",
@@ -699,7 +699,7 @@
       "file_type": "code",
       "norm_label": "describe()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L162"
+      "source_location": "L164"
     },
     {
       "id": "mods_wf_monitor_hooks_register_edgesof",
@@ -711,7 +711,7 @@
       "file_type": "code",
       "norm_label": "edgesof()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L116"
+      "source_location": "L118"
     },
     {
       "id": "mods_wf_monitor_hooks_register_finish",
@@ -723,7 +723,7 @@
       "file_type": "code",
       "norm_label": "finish()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L404"
+      "source_location": "L410"
     },
     {
       "id": "mods_wf_monitor_hooks_register_fit",
@@ -735,7 +735,7 @@
       "file_type": "code",
       "norm_label": "fit()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L131"
+      "source_location": "L133"
     },
     {
       "id": "mods_wf_monitor_hooks_register_hasrunning",
@@ -747,7 +747,7 @@
       "file_type": "code",
       "norm_label": "hasrunning()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L231"
+      "source_location": "L233"
     },
     {
       "id": "mods_wf_monitor_hooks_register_lastdone",
@@ -759,7 +759,7 @@
       "file_type": "code",
       "norm_label": "lastdone()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L338"
+      "source_location": "L344"
     },
     {
       "id": "mods_wf_monitor_hooks_register_laststep",
@@ -771,7 +771,7 @@
       "file_type": "code",
       "norm_label": "laststep()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L339"
+      "source_location": "L345"
     },
     {
       "id": "mods_wf_monitor_hooks_register_mask",
@@ -783,7 +783,7 @@
       "file_type": "code",
       "norm_label": "mask()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L51"
+      "source_location": "L53"
     },
     {
       "id": "mods_wf_monitor_hooks_register_maskdeep",
@@ -795,7 +795,7 @@
       "file_type": "code",
       "norm_label": "maskdeep()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L71"
+      "source_location": "L73"
     },
     {
       "id": "mods_wf_monitor_hooks_register_needpoll",
@@ -807,7 +807,7 @@
       "file_type": "code",
       "norm_label": "needpoll()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L243"
+      "source_location": "L245"
     },
     {
       "id": "mods_wf_monitor_hooks_register_objs",
@@ -819,7 +819,7 @@
       "file_type": "code",
       "norm_label": "objs()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L81"
+      "source_location": "L83"
     },
     {
       "id": "mods_wf_monitor_hooks_register_openpane",
@@ -831,7 +831,7 @@
       "file_type": "code",
       "norm_label": "openpane()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L466"
+      "source_location": "L472"
     },
     {
       "id": "mods_wf_monitor_hooks_register_phasesof",
@@ -843,7 +843,7 @@
       "file_type": "code",
       "norm_label": "phasesof()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L177"
+      "source_location": "L179"
     },
     {
       "id": "mods_wf_monitor_hooks_register_pick",
@@ -855,7 +855,7 @@
       "file_type": "code",
       "norm_label": "pick()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L300"
+      "source_location": "L302"
     },
     {
       "id": "mods_wf_monitor_hooks_register_poll",
@@ -867,7 +867,7 @@
       "file_type": "code",
       "norm_label": "poll()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L443"
+      "source_location": "L449"
     },
     {
       "id": "mods_wf_monitor_hooks_register_prune",
@@ -879,7 +879,7 @@
       "file_type": "code",
       "norm_label": "prune()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L249"
+      "source_location": "L251"
     },
     {
       "id": "mods_wf_monitor_hooks_register_push",
@@ -891,7 +891,7 @@
       "file_type": "code",
       "norm_label": "push()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L309"
+      "source_location": "L311"
     },
     {
       "id": "mods_wf_monitor_hooks_register_pushsoon",
@@ -903,7 +903,7 @@
       "file_type": "code",
       "norm_label": "pushsoon()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L330"
+      "source_location": "L336"
     },
     {
       "id": "mods_wf_monitor_hooks_register_readmeta",
@@ -915,7 +915,7 @@
       "file_type": "code",
       "norm_label": "readmeta()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L358"
+      "source_location": "L364"
     },
     {
       "id": "mods_wf_monitor_hooks_register_readrun",
@@ -927,7 +927,7 @@
       "file_type": "code",
       "norm_label": "readrun()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L376"
+      "source_location": "L382"
     },
     {
       "id": "mods_wf_monitor_hooks_register_rechecking",
@@ -939,7 +939,7 @@
       "file_type": "code",
       "norm_label": "rechecking()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L240"
+      "source_location": "L242"
     },
     {
       "id": "mods_wf_monitor_hooks_register_reconcile",
@@ -951,7 +951,7 @@
       "file_type": "code",
       "norm_label": "reconcile()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L472"
+      "source_location": "L478"
     },
     {
       "id": "mods_wf_monitor_hooks_register_redraw",
@@ -963,7 +963,7 @@
       "file_type": "code",
       "norm_label": "redraw()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L263"
+      "source_location": "L265"
     },
     {
       "id": "mods_wf_monitor_hooks_register_refresh",
@@ -975,7 +975,7 @@
       "file_type": "code",
       "norm_label": "refresh()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L372"
+      "source_location": "L378"
     },
     {
       "id": "mods_wf_monitor_hooks_register_register",
@@ -987,7 +987,7 @@
       "file_type": "code",
       "norm_label": "register()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L487"
+      "source_location": "L493"
     },
     {
       "id": "mods_wf_monitor_hooks_register_reopen",
@@ -999,7 +999,7 @@
       "file_type": "code",
       "norm_label": "reopen()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L431"
+      "source_location": "L437"
     },
     {
       "id": "mods_wf_monitor_hooks_register_reponame",
@@ -1011,7 +1011,7 @@
       "file_type": "code",
       "norm_label": "reponame()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L174"
+      "source_location": "L176"
     },
     {
       "id": "mods_wf_monitor_hooks_register_roleof",
@@ -1023,7 +1023,7 @@
       "file_type": "code",
       "norm_label": "roleof()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L107"
+      "source_location": "L109"
     },
     {
       "id": "mods_wf_monitor_hooks_register_roundof",
@@ -1035,7 +1035,7 @@
       "file_type": "code",
       "norm_label": "roundof()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L105"
+      "source_location": "L107"
     },
     {
       "id": "mods_wf_monitor_hooks_register_runof",
@@ -1047,7 +1047,7 @@
       "file_type": "code",
       "norm_label": "runof()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L236"
+      "source_location": "L238"
     },
     {
       "id": "mods_wf_monitor_hooks_register_short",
@@ -1059,7 +1059,7 @@
       "file_type": "code",
       "norm_label": "short()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L37"
+      "source_location": "L39"
     },
     {
       "id": "mods_wf_monitor_hooks_register_since",
@@ -1071,7 +1071,7 @@
       "file_type": "code",
       "norm_label": "since()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L167"
+      "source_location": "L169"
     },
     {
       "id": "mods_wf_monitor_hooks_register_startpolling",
@@ -1083,7 +1083,7 @@
       "file_type": "code",
       "norm_label": "startpolling()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L462"
+      "source_location": "L468"
     },
     {
       "id": "mods_wf_monitor_hooks_register_statusof",
@@ -1095,7 +1095,7 @@
       "file_type": "code",
       "norm_label": "statusof()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L223"
+      "source_location": "L225"
     },
     {
       "id": "mods_wf_monitor_hooks_register_strs",
@@ -1107,7 +1107,7 @@
       "file_type": "code",
       "norm_label": "strs()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L80"
+      "source_location": "L82"
     },
     {
       "id": "mods_wf_monitor_hooks_register_summarize",
@@ -1119,7 +1119,7 @@
       "file_type": "code",
       "norm_label": "summarize()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L83"
+      "source_location": "L85"
     },
     {
       "id": "mods_wf_monitor_hooks_register_summarytext",
@@ -1131,7 +1131,7 @@
       "file_type": "code",
       "norm_label": "summarytext()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L341"
+      "source_location": "L347"
     },
     {
       "id": "mods_wf_monitor_hooks_register_trimlog",
@@ -1143,7 +1143,7 @@
       "file_type": "code",
       "norm_label": "trimlog()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L258"
+      "source_location": "L260"
     },
     {
       "id": "mods_wf_monitor_hooks_register_view",
@@ -1155,7 +1155,7 @@
       "file_type": "code",
       "norm_label": "view()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L268"
+      "source_location": "L270"
     },
     {
       "id": "mods_wf_monitor_hooks_register_walk",
@@ -1167,7 +1167,7 @@
       "file_type": "code",
       "norm_label": "walk()",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L184"
+      "source_location": "L186"
     },
     {
       "id": "mods_wf_monitor_tests_flow_test_jsonl",
@@ -1251,7 +1251,7 @@
       "file_type": "code",
       "norm_label": "beat()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L80"
+      "source_location": "L81"
     },
     {
       "id": "dashboard_dev_simulate_hex",
@@ -1263,7 +1263,7 @@
       "file_type": "code",
       "norm_label": "hex()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L18"
+      "source_location": "L19"
     },
     {
       "id": "dashboard_dev_simulate_play",
@@ -1275,7 +1275,7 @@
       "file_type": "code",
       "norm_label": "play()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L87"
+      "source_location": "L88"
     },
     {
       "id": "dashboard_dev_simulate_run_constructor",
@@ -1287,7 +1287,7 @@
       "file_type": "code",
       "norm_label": ".constructor()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L40"
+      "source_location": "L41"
     },
     {
       "id": "dashboard_dev_simulate_run_end",
@@ -1299,7 +1299,7 @@
       "file_type": "code",
       "norm_label": ".end()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L70"
+      "source_location": "L71"
     },
     {
       "id": "dashboard_dev_simulate_run_finish",
@@ -1311,7 +1311,7 @@
       "file_type": "code",
       "norm_label": ".finish()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L73"
+      "source_location": "L74"
     },
     {
       "id": "dashboard_dev_simulate_run_start",
@@ -1323,7 +1323,7 @@
       "file_type": "code",
       "norm_label": ".start()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L48"
+      "source_location": "L49"
     },
     {
       "id": "dashboard_dev_simulate_run_step",
@@ -1335,7 +1335,7 @@
       "file_type": "code",
       "norm_label": ".step()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L67"
+      "source_location": "L68"
     },
     {
       "id": "dashboard_dev_simulate_scenariofail",
@@ -1347,7 +1347,7 @@
       "file_type": "code",
       "norm_label": "scenariofail()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L180"
+      "source_location": "L181"
     },
     {
       "id": "dashboard_dev_simulate_scenariopass",
@@ -1359,7 +1359,7 @@
       "file_type": "code",
       "norm_label": "scenariopass()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L91"
+      "source_location": "L92"
     },
     {
       "id": "dashboard_dev_simulate_scenariostop",
@@ -1371,7 +1371,7 @@
       "file_type": "code",
       "norm_label": "scenariostop()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L206"
+      "source_location": "L207"
     },
     {
       "id": "dashboard_dev_simulate_session_constructor",
@@ -1383,7 +1383,7 @@
       "file_type": "code",
       "norm_label": ".constructor()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L23"
+      "source_location": "L24"
     },
     {
       "id": "dashboard_dev_simulate_session_push",
@@ -1395,7 +1395,7 @@
       "file_type": "code",
       "norm_label": ".push()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L28"
+      "source_location": "L29"
     },
     {
       "id": "dashboard_dev_simulate_sleep",
@@ -1407,7 +1407,7 @@
       "file_type": "code",
       "norm_label": "sleep()",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L19"
+      "source_location": "L20"
     },
     {
       "id": "dashboard_public_app_connect",
@@ -1753,7 +1753,7 @@
       "file_type": "code",
       "norm_label": "open",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L32"
+      "source_location": "L34"
     },
     {
       "id": "dashboard_server_sec",
@@ -1764,7 +1764,7 @@
       "file_type": "code",
       "norm_label": "sec",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L33"
+      "source_location": "L35"
     },
     {
       "id": "dashboard_server_types",
@@ -1775,7 +1775,7 @@
       "file_type": "code",
       "norm_label": "types",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L22"
+      "source_location": "L24"
     },
     {
       "id": "dashboard_test_escape_test",
@@ -2291,7 +2291,7 @@
       "file_type": "code",
       "norm_label": "argv",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L7"
+      "source_location": "L8"
     },
     {
       "id": "dashboard_dev_simulate_base",
@@ -2302,7 +2302,7 @@
       "file_type": "code",
       "norm_label": "base",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L8"
+      "source_location": "L9"
     },
     {
       "id": "dashboard_dev_simulate_clock",
@@ -2313,7 +2313,7 @@
       "file_type": "code",
       "norm_label": "clock",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L20"
+      "source_location": "L21"
     },
     {
       "id": "dashboard_dev_simulate_fast",
@@ -2324,7 +2324,7 @@
       "file_type": "code",
       "norm_label": "fast",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L9"
+      "source_location": "L10"
     },
     {
       "id": "dashboard_dev_simulate_phase_of",
@@ -2335,7 +2335,7 @@
       "file_type": "code",
       "norm_label": "phase_of",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L17"
+      "source_location": "L18"
     },
     {
       "id": "dashboard_dev_simulate_phases",
@@ -2346,7 +2346,7 @@
       "file_type": "code",
       "norm_label": "phases",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L16"
+      "source_location": "L17"
     },
     {
       "id": "dashboard_public_app",
@@ -2496,6 +2496,18 @@
       "source_location": "L1"
     },
     {
+      "id": "ref_node_assert",
+      "label": "ref_node_assert",
+      "_origin": "semantic",
+      "community": 0,
+      "community_name": "createServer",
+      "external": true,
+      "file_type": "concept",
+      "norm_label": "ref_node_assert",
+      "source_file": "",
+      "type": "external"
+    },
+    {
       "id": "ref_node_crypto",
       "label": "ref_node_crypto",
       "_origin": "semantic",
@@ -2504,6 +2516,18 @@
       "external": true,
       "file_type": "concept",
       "norm_label": "ref_node_crypto",
+      "source_file": "",
+      "type": "external"
+    },
+    {
+      "id": "ref_node_fs",
+      "label": "ref_node_fs",
+      "_origin": "semantic",
+      "community": 0,
+      "community_name": "createServer",
+      "external": true,
+      "file_type": "concept",
+      "norm_label": "ref_node_fs",
       "source_file": "",
       "type": "external"
     },
@@ -2520,42 +2544,9 @@
       "type": "external"
     },
     {
-      "id": "ref_claude_code",
-      "label": "ref_claude_code",
-      "_origin": "semantic",
-      "community": 4,
-      "community_name": "flow.test.ts",
-      "external": true,
-      "file_type": "concept",
-      "norm_label": "ref_claude_code",
-      "source_file": "",
-      "type": "external"
-    },
-    {
-      "id": "ref_node_assert",
-      "label": "ref_node_assert",
-      "community": 0,
-      "community_name": "createServer",
-      "external": true,
-      "file_type": "concept",
-      "norm_label": "ref_node_assert",
-      "source_file": "",
-      "type": "external"
-    },
-    {
-      "id": "ref_node_fs",
-      "label": "ref_node_fs",
-      "community": 0,
-      "community_name": "createServer",
-      "external": true,
-      "file_type": "concept",
-      "norm_label": "ref_node_fs",
-      "source_file": "",
-      "type": "external"
-    },
-    {
       "id": "ref_node_os",
       "label": "ref_node_os",
+      "_origin": "semantic",
       "community": 0,
       "community_name": "createServer",
       "external": true,
@@ -2567,6 +2558,7 @@
     {
       "id": "ref_node_path",
       "label": "ref_node_path",
+      "_origin": "semantic",
       "community": 0,
       "community_name": "createServer",
       "external": true,
@@ -2578,6 +2570,7 @@
     {
       "id": "ref_node_test",
       "label": "ref_node_test",
+      "_origin": "semantic",
       "community": 0,
       "community_name": "createServer",
       "external": true,
@@ -2589,11 +2582,24 @@
     {
       "id": "ref_node_url",
       "label": "ref_node_url",
+      "_origin": "semantic",
       "community": 0,
       "community_name": "createServer",
       "external": true,
       "file_type": "concept",
       "norm_label": "ref_node_url",
+      "source_file": "",
+      "type": "external"
+    },
+    {
+      "id": "ref_claude_code",
+      "label": "ref_claude_code",
+      "_origin": "semantic",
+      "community": 4,
+      "community_name": "flow.test.ts",
+      "external": true,
+      "file_type": "concept",
+      "norm_label": "ref_claude_code",
       "source_file": "",
       "type": "external"
     }
@@ -2608,7 +2614,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L83",
+      "source_location": "L84",
       "weight": 1.0
     },
     {
@@ -2620,7 +2626,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L84",
+      "source_location": "L85",
       "weight": 1.0
     },
     {
@@ -2632,7 +2638,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L88",
+      "source_location": "L89",
       "weight": 1.0
     },
     {
@@ -2644,7 +2650,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L88",
+      "source_location": "L89",
       "weight": 1.0
     },
     {
@@ -2656,7 +2662,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L43",
+      "source_location": "L44",
       "weight": 1.0
     },
     {
@@ -2668,7 +2674,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L44",
+      "source_location": "L45",
       "weight": 1.0
     },
     {
@@ -2680,7 +2686,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L74",
+      "source_location": "L75",
       "weight": 1.0
     },
     {
@@ -2692,7 +2698,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L54",
+      "source_location": "L55",
       "weight": 1.0
     },
     {
@@ -2704,7 +2710,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L57",
+      "source_location": "L58",
       "weight": 1.0
     },
     {
@@ -2716,36 +2722,12 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L181",
+      "source_location": "L182",
       "weight": 1.0
     },
     {
       "source": "dashboard_dev_simulate_scenariofail",
       "target": "dashboard_dev_simulate_beat",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L183",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_dev_simulate_scenariofail",
-      "target": "dashboard_dev_simulate_run_start",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L183",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_dev_simulate_scenariofail",
-      "target": "dashboard_dev_simulate_play",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -2757,6 +2739,30 @@
     },
     {
       "source": "dashboard_dev_simulate_scenariofail",
+      "target": "dashboard_dev_simulate_run_start",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "dashboard/dev/simulate.mjs",
+      "source_location": "L184",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_dev_simulate_scenariofail",
+      "target": "dashboard_dev_simulate_play",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "dashboard/dev/simulate.mjs",
+      "source_location": "L185",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_dev_simulate_scenariofail",
       "target": "dashboard_dev_simulate_run_end",
       "relation": "calls",
       "_origin": "ast",
@@ -2764,7 +2770,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L189",
+      "source_location": "L190",
       "weight": 1.0
     },
     {
@@ -2776,7 +2782,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L203",
+      "source_location": "L204",
       "weight": 1.0
     },
     {
@@ -2788,7 +2794,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L102",
+      "source_location": "L103",
       "weight": 1.0
     },
     {
@@ -2800,7 +2806,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L177",
+      "source_location": "L178",
       "weight": 1.0
     },
     {
@@ -2812,36 +2818,12 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L92",
+      "source_location": "L93",
       "weight": 1.0
     },
     {
       "source": "dashboard_dev_simulate_scenariopass",
       "target": "dashboard_dev_simulate_beat",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L94",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_dev_simulate_scenariopass",
-      "target": "dashboard_dev_simulate_run_start",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L94",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_dev_simulate_scenariopass",
-      "target": "dashboard_dev_simulate_play",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -2852,6 +2834,30 @@
       "weight": 1.0
     },
     {
+      "source": "dashboard_dev_simulate_scenariopass",
+      "target": "dashboard_dev_simulate_run_start",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "dashboard/dev/simulate.mjs",
+      "source_location": "L95",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_dev_simulate_scenariopass",
+      "target": "dashboard_dev_simulate_play",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "dashboard/dev/simulate.mjs",
+      "source_location": "L96",
+      "weight": 1.0
+    },
+    {
       "source": "dashboard_dev_simulate_scenariostop",
       "target": "dashboard_dev_simulate_run",
       "relation": "calls",
@@ -2860,36 +2866,12 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L207",
+      "source_location": "L208",
       "weight": 1.0
     },
     {
       "source": "dashboard_dev_simulate_scenariostop",
       "target": "dashboard_dev_simulate_beat",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L209",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_dev_simulate_scenariostop",
-      "target": "dashboard_dev_simulate_run_start",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L209",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_dev_simulate_scenariostop",
-      "target": "dashboard_dev_simulate_play",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -2901,7 +2883,19 @@
     },
     {
       "source": "dashboard_dev_simulate_scenariostop",
-      "target": "dashboard_dev_simulate_run_end",
+      "target": "dashboard_dev_simulate_run_start",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "dashboard/dev/simulate.mjs",
+      "source_location": "L210",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_dev_simulate_scenariostop",
+      "target": "dashboard_dev_simulate_play",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -2913,6 +2907,18 @@
     },
     {
       "source": "dashboard_dev_simulate_scenariostop",
+      "target": "dashboard_dev_simulate_run_end",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "dashboard/dev/simulate.mjs",
+      "source_location": "L212",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_dev_simulate_scenariostop",
       "target": "dashboard_dev_simulate_run_finish",
       "relation": "calls",
       "_origin": "ast",
@@ -2920,7 +2926,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L223",
+      "source_location": "L224",
       "weight": 1.0
     },
     {
@@ -2932,7 +2938,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L24",
+      "source_location": "L25",
       "weight": 1.0
     },
     {
@@ -4120,7 +4126,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L242",
+      "source_location": "L244",
       "weight": 1.0
     },
     {
@@ -4132,7 +4138,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L249",
+      "source_location": "L251",
       "weight": 1.0
     },
     {
@@ -4144,7 +4150,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L94",
+      "source_location": "L96",
       "weight": 1.0
     },
     {
@@ -4156,7 +4162,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L107",
+      "source_location": "L109",
       "weight": 1.0
     },
     {
@@ -4168,7 +4174,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L228",
+      "source_location": "L230",
       "weight": 1.0
     },
     {
@@ -4180,7 +4186,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L146",
+      "source_location": "L148",
       "weight": 1.0
     },
     {
@@ -4192,7 +4198,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L156",
+      "source_location": "L158",
       "weight": 1.0
     },
     {
@@ -4204,36 +4210,12 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L157",
+      "source_location": "L159",
       "weight": 1.0
     },
     {
       "source": "dashboard_server_createserver_login",
       "target": "dashboard_server_createserver_lockedfor",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "dashboard/server.mjs",
-      "source_location": "L160",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_server_createserver_login",
-      "target": "dashboard_server_createserver_redirect",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "dashboard/server.mjs",
-      "source_location": "L161",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_server_createserver_login",
-      "target": "dashboard_server_same",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -4245,6 +4227,30 @@
     },
     {
       "source": "dashboard_server_createserver_login",
+      "target": "dashboard_server_createserver_redirect",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "dashboard/server.mjs",
+      "source_location": "L163",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_server_createserver_login",
+      "target": "dashboard_server_same",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "dashboard/server.mjs",
+      "source_location": "L164",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_server_createserver_login",
       "target": "dashboard_server_createserver_fail",
       "relation": "calls",
       "_origin": "ast",
@@ -4252,7 +4258,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L169",
+      "source_location": "L171",
       "weight": 1.0
     },
     {
@@ -4264,7 +4270,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L174",
+      "source_location": "L176",
       "weight": 1.0
     },
     {
@@ -4276,7 +4282,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L176",
+      "source_location": "L178",
       "weight": 1.0
     },
     {
@@ -4288,7 +4294,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L178",
+      "source_location": "L180",
       "weight": 1.0
     },
     {
@@ -4300,7 +4306,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L179",
+      "source_location": "L181",
       "weight": 1.0
     },
     {
@@ -4312,7 +4318,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L182",
+      "source_location": "L184",
       "weight": 1.0
     },
     {
@@ -4324,7 +4330,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L112",
+      "source_location": "L114",
       "weight": 1.0
     },
     {
@@ -4360,7 +4366,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L79",
+      "source_location": "L81",
       "weight": 1.0
     },
     {
@@ -4372,7 +4378,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L79",
+      "source_location": "L81",
       "weight": 1.0
     },
     {
@@ -4384,7 +4390,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L124",
+      "source_location": "L126",
       "weight": 1.0
     },
     {
@@ -4396,7 +4402,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L408",
+      "source_location": "L414",
       "weight": 1.0
     },
     {
@@ -4408,7 +4414,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L409",
+      "source_location": "L415",
       "weight": 1.0
     },
     {
@@ -4420,7 +4426,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L421",
+      "source_location": "L427",
       "weight": 1.0
     },
     {
@@ -4432,7 +4438,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L425",
+      "source_location": "L431",
       "weight": 1.0
     },
     {
@@ -4444,7 +4450,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L426",
+      "source_location": "L432",
       "weight": 1.0
     },
     {
@@ -4456,7 +4462,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L427",
+      "source_location": "L433",
       "weight": 1.0
     },
     {
@@ -4468,7 +4474,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L72",
+      "source_location": "L74",
       "weight": 1.0
     },
     {
@@ -4480,7 +4486,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L74",
+      "source_location": "L76",
       "weight": 1.0
     },
     {
@@ -4492,7 +4498,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L244",
+      "source_location": "L246",
       "weight": 1.0
     },
     {
@@ -4504,48 +4510,12 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L180",
+      "source_location": "L182",
       "weight": 1.0
     },
     {
       "source": "mods_wf_monitor_hooks_register_poll",
       "target": "mods_wf_monitor_hooks_register_refresh",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L447",
-      "weight": 1.0
-    },
-    {
-      "source": "mods_wf_monitor_hooks_register_poll",
-      "target": "mods_wf_monitor_hooks_register_rechecking",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L448",
-      "weight": 1.0
-    },
-    {
-      "source": "mods_wf_monitor_hooks_register_poll",
-      "target": "mods_wf_monitor_hooks_register_reopen",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L450",
-      "weight": 1.0
-    },
-    {
-      "source": "mods_wf_monitor_hooks_register_poll",
-      "target": "mods_wf_monitor_hooks_register_redraw",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -4557,7 +4527,7 @@
     },
     {
       "source": "mods_wf_monitor_hooks_register_poll",
-      "target": "mods_wf_monitor_hooks_register_push",
+      "target": "mods_wf_monitor_hooks_register_rechecking",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -4569,6 +4539,42 @@
     },
     {
       "source": "mods_wf_monitor_hooks_register_poll",
+      "target": "mods_wf_monitor_hooks_register_reopen",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "mods/wf-monitor/hooks/register.js",
+      "source_location": "L456",
+      "weight": 1.0
+    },
+    {
+      "source": "mods_wf_monitor_hooks_register_poll",
+      "target": "mods_wf_monitor_hooks_register_redraw",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "mods/wf-monitor/hooks/register.js",
+      "source_location": "L459",
+      "weight": 1.0
+    },
+    {
+      "source": "mods_wf_monitor_hooks_register_poll",
+      "target": "mods_wf_monitor_hooks_register_push",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "mods/wf-monitor/hooks/register.js",
+      "source_location": "L460",
+      "weight": 1.0
+    },
+    {
+      "source": "mods_wf_monitor_hooks_register_poll",
       "target": "mods_wf_monitor_hooks_register_prune",
       "relation": "calls",
       "_origin": "ast",
@@ -4576,7 +4582,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L455",
+      "source_location": "L461",
       "weight": 1.0
     },
     {
@@ -4588,7 +4594,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L456",
+      "source_location": "L462",
       "weight": 1.0
     },
     {
@@ -4600,7 +4606,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L250",
+      "source_location": "L252",
       "weight": 1.0
     },
     {
@@ -4612,7 +4618,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L311",
+      "source_location": "L313",
       "weight": 1.0
     },
     {
@@ -4624,7 +4630,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L312",
+      "source_location": "L314",
       "weight": 1.0
     },
     {
@@ -4636,7 +4642,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L318",
+      "source_location": "L320",
       "weight": 1.0
     },
     {
@@ -4648,7 +4654,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L330",
+      "source_location": "L336",
       "weight": 1.0
     },
     {
@@ -4660,7 +4666,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L361",
+      "source_location": "L367",
       "weight": 1.0
     },
     {
@@ -4672,7 +4678,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L391",
+      "source_location": "L397",
       "weight": 1.0
     },
     {
@@ -4684,7 +4690,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L399",
+      "source_location": "L405",
       "weight": 1.0
     },
     {
@@ -4696,7 +4702,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L478",
+      "source_location": "L484",
       "weight": 1.0
     },
     {
@@ -4708,7 +4714,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L482",
+      "source_location": "L488",
       "weight": 1.0
     },
     {
@@ -4720,7 +4726,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L373",
+      "source_location": "L379",
       "weight": 1.0
     },
     {
@@ -4732,7 +4738,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L502",
+      "source_location": "L508",
       "weight": 1.0
     },
     {
@@ -4744,7 +4750,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L516",
+      "source_location": "L522",
       "weight": 1.0
     },
     {
@@ -4756,7 +4762,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L531",
+      "source_location": "L537",
       "weight": 1.0
     },
     {
@@ -4768,7 +4774,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L536",
+      "source_location": "L542",
       "weight": 1.0
     },
     {
@@ -4780,7 +4786,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L550",
+      "source_location": "L556",
       "weight": 1.0
     },
     {
@@ -4792,7 +4798,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L551",
+      "source_location": "L557",
       "weight": 1.0
     },
     {
@@ -4804,7 +4810,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L552",
+      "source_location": "L558",
       "weight": 1.0
     },
     {
@@ -4816,7 +4822,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L561",
+      "source_location": "L567",
       "weight": 1.0
     },
     {
@@ -4828,7 +4834,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L567",
+      "source_location": "L573",
       "weight": 1.0
     },
     {
@@ -4840,7 +4846,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L568",
+      "source_location": "L574",
       "weight": 1.0
     },
     {
@@ -4852,7 +4858,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L571",
+      "source_location": "L577",
       "weight": 1.0
     },
     {
@@ -4864,7 +4870,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L571",
+      "source_location": "L577",
       "weight": 1.0
     },
     {
@@ -4876,7 +4882,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L571",
+      "source_location": "L577",
       "weight": 1.0
     },
     {
@@ -4888,7 +4894,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L571",
+      "source_location": "L577",
       "weight": 1.0
     },
     {
@@ -4900,7 +4906,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L574",
+      "source_location": "L580",
       "weight": 1.0
     },
     {
@@ -4912,7 +4918,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L576",
+      "source_location": "L582",
       "weight": 1.0
     },
     {
@@ -4924,7 +4930,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L595",
+      "source_location": "L601",
       "weight": 1.0
     },
     {
@@ -4936,7 +4942,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L614",
+      "source_location": "L620",
       "weight": 1.0
     },
     {
@@ -4948,7 +4954,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L616",
+      "source_location": "L622",
       "weight": 1.0
     },
     {
@@ -4960,7 +4966,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L631",
+      "source_location": "L637",
       "weight": 1.0
     },
     {
@@ -4972,7 +4978,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L632",
+      "source_location": "L638",
       "weight": 1.0
     },
     {
@@ -4984,7 +4990,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L635",
+      "source_location": "L641",
       "weight": 1.0
     },
     {
@@ -4996,7 +5002,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L639",
+      "source_location": "L645",
       "weight": 1.0
     },
     {
@@ -5008,7 +5014,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L640",
+      "source_location": "L646",
       "weight": 1.0
     },
     {
@@ -5020,7 +5026,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L438",
+      "source_location": "L444",
       "weight": 1.0
     },
     {
@@ -5032,7 +5038,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L439",
+      "source_location": "L445",
       "weight": 1.0
     },
     {
@@ -5044,7 +5050,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L440",
+      "source_location": "L446",
       "weight": 1.0
     },
     {
@@ -5056,7 +5062,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L175",
+      "source_location": "L177",
       "weight": 1.0
     },
     {
@@ -5068,7 +5074,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L175",
+      "source_location": "L177",
       "weight": 1.0
     },
     {
@@ -5080,7 +5086,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L463",
+      "source_location": "L469",
       "weight": 1.0
     },
     {
@@ -5092,7 +5098,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L80",
+      "source_location": "L82",
       "weight": 1.0
     },
     {
@@ -5104,7 +5110,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L85",
+      "source_location": "L87",
       "weight": 1.0
     },
     {
@@ -5116,7 +5122,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L88",
+      "source_location": "L90",
       "weight": 1.0
     },
     {
@@ -5128,7 +5134,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L92",
+      "source_location": "L94",
       "weight": 1.0
     },
     {
@@ -5140,7 +5146,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L345",
+      "source_location": "L351",
       "weight": 1.0
     },
     {
@@ -5152,7 +5158,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L346",
+      "source_location": "L352",
       "weight": 1.0
     },
     {
@@ -5164,7 +5170,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L347",
+      "source_location": "L353",
       "weight": 1.0
     },
     {
@@ -5176,7 +5182,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L348",
+      "source_location": "L354",
       "weight": 1.0
     },
     {
@@ -5188,7 +5194,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L352",
+      "source_location": "L358",
       "weight": 1.0
     },
     {
@@ -5200,7 +5206,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L353",
+      "source_location": "L359",
       "weight": 1.0
     },
     {
@@ -5212,7 +5218,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L259",
+      "source_location": "L261",
       "weight": 1.0
     },
     {
@@ -5224,7 +5230,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L270",
+      "source_location": "L272",
       "weight": 1.0
     },
     {
@@ -5236,7 +5242,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L271",
+      "source_location": "L273",
       "weight": 1.0
     },
     {
@@ -5248,7 +5254,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L277",
+      "source_location": "L279",
       "weight": 1.0
     },
     {
@@ -5260,7 +5266,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L278",
+      "source_location": "L280",
       "weight": 1.0
     },
     {
@@ -5272,7 +5278,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L295",
+      "source_location": "L297",
       "weight": 1.0
     },
     {
@@ -5284,7 +5290,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L199",
+      "source_location": "L201",
       "weight": 1.0
     },
     {
@@ -5296,7 +5302,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L216",
+      "source_location": "L218",
       "weight": 1.0
     },
     {
@@ -5416,7 +5422,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L102",
+      "source_location": "L104",
       "weight": 1.0
     },
     {
@@ -5428,7 +5434,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L111",
+      "source_location": "L113",
       "weight": 1.0
     },
     {
@@ -5440,7 +5446,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L132",
+      "source_location": "L134",
       "weight": 1.0
     },
     {
@@ -5452,7 +5458,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L155",
+      "source_location": "L157",
       "weight": 1.0
     },
     {
@@ -5464,7 +5470,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L173",
+      "source_location": "L175",
       "weight": 1.0
     },
     {
@@ -5476,7 +5482,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L227",
+      "source_location": "L229",
       "weight": 1.0
     },
     {
@@ -5656,55 +5662,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L5",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_server",
-      "target": "ref_node_http",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "dashboard/server.mjs",
-      "source_location": "L4",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_server",
-      "target": "ref_node_fs",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "dashboard/server.mjs",
-      "source_location": "L5",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_server",
-      "target": "ref_node_path",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "dashboard/server.mjs",
       "source_location": "L6",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_server",
-      "target": "ref_node_crypto",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "dashboard/server.mjs",
-      "source_location": "L7",
       "weight": 1.0
     },
     {
@@ -5716,7 +5674,55 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "dashboard/server.mjs",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_server",
+      "target": "ref_node_http",
+      "relation": "imports_from",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "dashboard/server.mjs",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_server",
+      "target": "ref_node_fs",
+      "relation": "imports_from",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "dashboard/server.mjs",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_server",
+      "target": "ref_node_path",
+      "relation": "imports_from",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "dashboard/server.mjs",
       "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_server",
+      "target": "ref_node_crypto",
+      "relation": "imports_from",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "dashboard/server.mjs",
+      "source_location": "L9",
       "weight": 1.0
     },
     {
@@ -5942,18 +5948,18 @@
     },
     {
       "source": "dashboard_dev_simulate",
-      "target": "dashboard_dev_simulate_phases",
+      "target": "dashboard_dev_simulate_fast",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L16",
+      "source_location": "L10",
       "weight": 1.0
     },
     {
       "source": "dashboard_dev_simulate",
-      "target": "dashboard_dev_simulate_phase_of",
+      "target": "dashboard_dev_simulate_phases",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -5964,7 +5970,7 @@
     },
     {
       "source": "dashboard_dev_simulate",
-      "target": "dashboard_dev_simulate_hex",
+      "target": "dashboard_dev_simulate_phase_of",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -5981,12 +5987,12 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L180",
+      "source_location": "L181",
       "weight": 1.0
     },
     {
       "source": "dashboard_dev_simulate",
-      "target": "dashboard_dev_simulate_sleep",
+      "target": "dashboard_dev_simulate_hex",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -5997,7 +6003,7 @@
     },
     {
       "source": "dashboard_dev_simulate",
-      "target": "dashboard_dev_simulate_clock",
+      "target": "dashboard_dev_simulate_sleep",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -6014,7 +6020,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L206",
+      "source_location": "L207",
+      "weight": 1.0
+    },
+    {
+      "source": "dashboard_dev_simulate",
+      "target": "dashboard_dev_simulate_clock",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "dashboard/dev/simulate.mjs",
+      "source_location": "L21",
       "weight": 1.0
     },
     {
@@ -6025,7 +6042,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L22",
+      "source_location": "L23",
       "weight": 1.0
     },
     {
@@ -6036,23 +6053,12 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L39",
+      "source_location": "L40",
       "weight": 1.0
     },
     {
       "source": "dashboard_dev_simulate",
       "target": "dashboard_dev_simulate_argv",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L7",
-      "weight": 1.0
-    },
-    {
-      "source": "dashboard_dev_simulate",
-      "target": "dashboard_dev_simulate_base",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -6069,7 +6075,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L80",
+      "source_location": "L81",
       "weight": 1.0
     },
     {
@@ -6080,12 +6086,12 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L87",
+      "source_location": "L88",
       "weight": 1.0
     },
     {
       "source": "dashboard_dev_simulate",
-      "target": "dashboard_dev_simulate_fast",
+      "target": "dashboard_dev_simulate_base",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -6102,7 +6108,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L91",
+      "source_location": "L92",
       "weight": 1.0
     },
     {
@@ -6751,7 +6757,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/server.mjs",
-      "source_location": "L22",
+      "source_location": "L24",
       "weight": 1.0
     },
     {
@@ -6762,7 +6768,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/server.mjs",
-      "source_location": "L32",
+      "source_location": "L34",
       "weight": 1.0
     },
     {
@@ -6773,7 +6779,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/server.mjs",
-      "source_location": "L33",
+      "source_location": "L35",
       "weight": 1.0
     },
     {
@@ -6784,7 +6790,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/server.mjs",
-      "source_location": "L41",
+      "source_location": "L43",
       "weight": 1.0
     },
     {
@@ -6795,7 +6801,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/server.mjs",
-      "source_location": "L48",
+      "source_location": "L50",
       "weight": 1.0
     },
     {
@@ -6806,7 +6812,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/server.mjs",
-      "source_location": "L62",
+      "source_location": "L64",
       "weight": 1.0
     },
     {
@@ -6817,7 +6823,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/server.mjs",
-      "source_location": "L72",
+      "source_location": "L74",
       "weight": 1.0
     },
     {
@@ -6828,7 +6834,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/server.mjs",
-      "source_location": "L75",
+      "source_location": "L77",
       "weight": 1.0
     },
     {
@@ -6839,7 +6845,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/server.mjs",
-      "source_location": "L87",
+      "source_location": "L89",
       "weight": 1.0
     },
     {
@@ -6850,7 +6856,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/server.mjs",
-      "source_location": "L137",
+      "source_location": "L139",
       "weight": 1.0
     },
     {
@@ -6861,7 +6867,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/server.mjs",
-      "source_location": "L143",
+      "source_location": "L145",
       "weight": 1.0
     },
     {
@@ -6894,7 +6900,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L105",
+      "source_location": "L107",
       "weight": 1.0
     },
     {
@@ -6905,7 +6911,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L107",
+      "source_location": "L109",
       "weight": 1.0
     },
     {
@@ -6916,7 +6922,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L116",
+      "source_location": "L118",
       "weight": 1.0
     },
     {
@@ -6927,7 +6933,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L131",
+      "source_location": "L133",
       "weight": 1.0
     },
     {
@@ -6938,7 +6944,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L162",
+      "source_location": "L164",
       "weight": 1.0
     },
     {
@@ -6949,7 +6955,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L167",
+      "source_location": "L169",
       "weight": 1.0
     },
     {
@@ -6960,7 +6966,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L174",
+      "source_location": "L176",
       "weight": 1.0
     },
     {
@@ -6971,7 +6977,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L177",
+      "source_location": "L179",
       "weight": 1.0
     },
     {
@@ -6982,7 +6988,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L184",
+      "source_location": "L186",
       "weight": 1.0
     },
     {
@@ -7004,7 +7010,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L223",
+      "source_location": "L225",
       "weight": 1.0
     },
     {
@@ -7026,7 +7032,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L231",
+      "source_location": "L233",
       "weight": 1.0
     },
     {
@@ -7037,7 +7043,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L236",
+      "source_location": "L238",
       "weight": 1.0
     },
     {
@@ -7048,7 +7054,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L240",
+      "source_location": "L242",
       "weight": 1.0
     },
     {
@@ -7059,18 +7065,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L243",
-      "weight": 1.0
-    },
-    {
-      "source": "mods_wf_monitor_hooks_register",
-      "target": "mods_wf_monitor_hooks_register_prune",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L249",
+      "source_location": "L245",
       "weight": 1.0
     },
     {
@@ -7086,13 +7081,13 @@
     },
     {
       "source": "mods_wf_monitor_hooks_register",
-      "target": "mods_wf_monitor_hooks_register_trimlog",
+      "target": "mods_wf_monitor_hooks_register_prune",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L258",
+      "source_location": "L251",
       "weight": 1.0
     },
     {
@@ -7108,13 +7103,24 @@
     },
     {
       "source": "mods_wf_monitor_hooks_register",
+      "target": "mods_wf_monitor_hooks_register_trimlog",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "mods/wf-monitor/hooks/register.js",
+      "source_location": "L260",
+      "weight": 1.0
+    },
+    {
+      "source": "mods_wf_monitor_hooks_register",
       "target": "mods_wf_monitor_hooks_register_redraw",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L263",
+      "source_location": "L265",
       "weight": 1.0
     },
     {
@@ -7125,7 +7131,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L268",
+      "source_location": "L270",
       "weight": 1.0
     },
     {
@@ -7136,7 +7142,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L300",
+      "source_location": "L302",
       "weight": 1.0
     },
     {
@@ -7147,7 +7153,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L309",
+      "source_location": "L311",
       "weight": 1.0
     },
     {
@@ -7158,7 +7164,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L330",
+      "source_location": "L336",
       "weight": 1.0
     },
     {
@@ -7169,7 +7175,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L332",
+      "source_location": "L338",
       "weight": 1.0
     },
     {
@@ -7180,7 +7186,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L338",
+      "source_location": "L344",
       "weight": 1.0
     },
     {
@@ -7191,7 +7197,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L339",
+      "source_location": "L345",
       "weight": 1.0
     },
     {
@@ -7202,7 +7208,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L341",
+      "source_location": "L347",
       "weight": 1.0
     },
     {
@@ -7213,18 +7219,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L358",
-      "weight": 1.0
-    },
-    {
-      "source": "mods_wf_monitor_hooks_register",
-      "target": "mods_wf_monitor_hooks_register_short",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L37",
+      "source_location": "L364",
       "weight": 1.0
     },
     {
@@ -7235,7 +7230,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L372",
+      "source_location": "L378",
       "weight": 1.0
     },
     {
@@ -7246,7 +7241,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L376",
+      "source_location": "L382",
+      "weight": 1.0
+    },
+    {
+      "source": "mods_wf_monitor_hooks_register",
+      "target": "mods_wf_monitor_hooks_register_short",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "mods/wf-monitor/hooks/register.js",
+      "source_location": "L39",
       "weight": 1.0
     },
     {
@@ -7257,18 +7263,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L404",
-      "weight": 1.0
-    },
-    {
-      "source": "mods_wf_monitor_hooks_register",
-      "target": "mods_wf_monitor_hooks_register_clip",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L42",
+      "source_location": "L410",
       "weight": 1.0
     },
     {
@@ -7279,7 +7274,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L431",
+      "source_location": "L437",
+      "weight": 1.0
+    },
+    {
+      "source": "mods_wf_monitor_hooks_register",
+      "target": "mods_wf_monitor_hooks_register_clip",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "mods/wf-monitor/hooks/register.js",
+      "source_location": "L44",
       "weight": 1.0
     },
     {
@@ -7290,7 +7296,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L443",
+      "source_location": "L449",
       "weight": 1.0
     },
     {
@@ -7301,7 +7307,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L462",
+      "source_location": "L468",
       "weight": 1.0
     },
     {
@@ -7312,7 +7318,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L466",
+      "source_location": "L472",
       "weight": 1.0
     },
     {
@@ -7323,7 +7329,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L472",
+      "source_location": "L478",
       "weight": 1.0
     },
     {
@@ -7334,7 +7340,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L487",
+      "source_location": "L493",
       "weight": 1.0
     },
     {
@@ -7345,7 +7351,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L51",
+      "source_location": "L53",
       "weight": 1.0
     },
     {
@@ -7356,7 +7362,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L71",
+      "source_location": "L73",
       "weight": 1.0
     },
     {
@@ -7367,7 +7373,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L79",
+      "source_location": "L81",
       "weight": 1.0
     },
     {
@@ -7378,7 +7384,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L80",
+      "source_location": "L82",
       "weight": 1.0
     },
     {
@@ -7389,7 +7395,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L81",
+      "source_location": "L83",
       "weight": 1.0
     },
     {
@@ -7400,7 +7406,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L83",
+      "source_location": "L85",
       "weight": 1.0
     },
     {
@@ -7642,7 +7648,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L40",
+      "source_location": "L41",
       "weight": 1.0
     },
     {
@@ -7653,7 +7659,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L48",
+      "source_location": "L49",
       "weight": 1.0
     },
     {
@@ -7664,7 +7670,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L67",
+      "source_location": "L68",
       "weight": 1.0
     },
     {
@@ -7675,7 +7681,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L70",
+      "source_location": "L71",
       "weight": 1.0
     },
     {
@@ -7686,7 +7692,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L73",
+      "source_location": "L74",
       "weight": 1.0
     },
     {
@@ -7697,7 +7703,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L23",
+      "source_location": "L24",
       "weight": 1.0
     },
     {
@@ -7708,7 +7714,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "dashboard/dev/simulate.mjs",
-      "source_location": "L28",
+      "source_location": "L29",
       "weight": 1.0
     },
     {
@@ -7780,7 +7786,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L276",
+      "source_location": "L278",
       "weight": 1.0
     },
     {
@@ -7792,7 +7798,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "dashboard/server.mjs",
-      "source_location": "L162",
+      "source_location": "L164",
       "weight": 1.0
     },
     {
@@ -7804,7 +7810,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "mods/wf-monitor/hooks/register.js",
-      "source_location": "L312",
+      "source_location": "L314",
       "weight": 1.0
     },
     {
@@ -7821,5 +7827,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "b0cbf688ef4c80b591182c7e819e8cfa86de0b23"
+  "built_at_commit": "529a8dcde11a72b93e717b53c1b337ec37198975"
 }
