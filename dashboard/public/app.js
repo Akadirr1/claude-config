@@ -6,6 +6,7 @@ import { S, serverNow, setView, setSummary, applyPatch, pickDefault, loadSession
 import { initLive, renderLive, live, openDetail, narrow } from './live.js'
 import { initCosts, renderCosts, refreshCosts } from './costs.js'
 import { initHistory, renderHistory } from './history.js'
+import { renderAutomations, refreshAutomations } from './automations.js'
 
 // ---------- temalar: menüden seçilir, seçim cihazda kalır
 const THEMES = [
@@ -56,8 +57,8 @@ themeMenu.addEventListener('keydown', e => {
 })
 document.addEventListener('click', e => { if (!themeMenu.hidden && !e.target.closest('.theme-menu, #theme')) closeThemes() })
 
-// ---------- yönlendirme: #canli, #maliyet, #gecmis (session derin bağlantısı: #canli/<sid>)
-const ROUTES = { canli: 'live', maliyet: 'costs', gecmis: 'history' }
+// ---------- yönlendirme: #canli, #maliyet, #gecmis, #otomasyon (session derin bağlantısı: #canli/<sid>)
+const ROUTES = { canli: 'live', maliyet: 'costs', gecmis: 'history', otomasyon: 'auto' }
 function readHash() {
   const [r, sid] = location.hash.slice(1).split('/')
   S.route = ROUTES[r] ?? 'live'
@@ -182,7 +183,7 @@ function palSearch() {
   const q = palIn.value.trim().toLocaleLowerCase('tr')
   const items = []
   const goView = r => ({ text: r[1], sub: 'görünüm', go: () => { location.hash = '#' + r[0] } })
-  for (const r of [['canli', 'Canlı'], ['maliyet', 'Maliyet'], ['gecmis', 'Geçmiş']]) items.push(goView(r))
+  for (const r of [['canli', 'Canlı'], ['maliyet', 'Maliyet'], ['gecmis', 'Geçmiş'], ['otomasyon', 'Otomasyon']]) items.push(goView(r))
   for (const x of [...S.index.values()].sort((a, b) => b.receivedAt - a.receivedAt))
     items.push({ text: `${x.repo || 'session'} — ${x.title || x.id.slice(-8)}`, sub: `${fmtAgo(serverNow() - x.receivedAt)} · ${fmtCost(x.totals.cost)}`, go: () => openSession(x.id) })
   for (const v of S.views.values()) {
@@ -227,7 +228,7 @@ document.addEventListener('keydown', e => {
 
 // ---------- çizim döngüsü
 let lastRoute = null
-const views = { live: $('view-live'), costs: $('view-costs'), history: $('view-history') }
+const views = { live: $('view-live'), costs: $('view-costs'), history: $('view-history'), auto: $('view-auto') }
 function render() {
   const focusKey = document.activeElement?.dataset?.k
   if (S.route !== lastRoute) hideTip()
@@ -240,6 +241,7 @@ function render() {
     renderPickers()
     renderLive()
   } else if (S.route === 'costs') renderCosts()
+  else if (S.route === 'auto') renderAutomations()
   else renderHistory()
   if (focusKey) for (const el of document.querySelectorAll('[data-k]')) if (el.dataset.k === focusKey) { el.focus({ preventScroll: true }); break }
   tick()
@@ -296,6 +298,13 @@ function connect() {
       clearTimeout(costTimer)
       costTimer = setTimeout(refreshCosts, 4000) // maliyet ekranı açıksa seyrek tazele
     }
+  })
+  // sunucudaki otomasyon kuralı ateşlendi: panel açıksa burada da göster
+  es.addEventListener('auto', ev => {
+    const d = parse(ev)
+    if (!d) return
+    toast({ type: 'warn', icon: '⚡', text: `${str(d.title)}${d.body ? ' — ' + str(d.body) : ''}` }, S.index.has(d.session) ? d.session : null)
+    refreshAutomations()
   })
   es.onerror = () => {
     if (es.readyState !== EventSource.CLOSED) return setConn('wait', 'yeniden bağlanıyor')
