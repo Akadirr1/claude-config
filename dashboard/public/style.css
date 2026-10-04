@@ -705,6 +705,36 @@ button.ev-b:hover { background: var(--surface2); }
 .savebar.dirty { position: sticky; bottom: 0; z-index: 5; border-color: var(--warn); }
 .primary:disabled { opacity: .45; cursor: default; filter: none; }
 
+/* ---------- evren */
+.evren-w { padding: 8px; }
+.evren { width: 100%; height: auto; display: block; max-height: 78vh; }
+.ev-dust { fill: var(--faint); opacity: .45; }
+.ev-core { fill: color-mix(in srgb, var(--c-orchestrator, var(--ink)) 7%, transparent); }
+.ev-line { fill: none; stroke: var(--line2); stroke-width: .8; opacity: .55; }
+.ev-line.on { stroke: var(--ink); opacity: .8; stroke-width: 1.1; }
+.ev-line.dim { opacity: .12; }
+.ev-star { cursor: pointer; outline: none; }
+.ev-star.dim { opacity: .15; pointer-events: none; }
+.ev-halo { fill: var(--c); opacity: .12; }
+.ev-body { fill: var(--c); stroke: color-mix(in srgb, var(--bg) 60%, transparent); stroke-width: 1; }
+.ev-star:hover .ev-body, .ev-star:focus-visible .ev-body { stroke: var(--ink); stroke-width: 2; }
+.ev-star:hover .ev-halo, .ev-star:focus-visible .ev-halo { opacity: .3; }
+.ev-pulse { fill: none; stroke: var(--ok); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: ev-pulse 2.4s ease-out infinite; }
+@keyframes ev-pulse { from { transform: scale(.8); opacity: .9; } to { transform: scale(2.2); opacity: 0; } }
+.ev-k-live { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--ok); }
+.ev-repos { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 16px; }
+.ev-repos .seg-b { border: 1px solid var(--line); min-height: 32px; }
+.tip { white-space: pre-line; }
+
+/* ---------- TV modu */
+body.tv .top { display: none; }
+body.tv .layout { max-width: none; }
+body.tv { font-size: 17px; }
+body.tv .toasts { bottom: 76px; }
+.tv-bar { position: fixed; z-index: 45; left: 16px; bottom: 16px; display: flex; align-items: center; gap: 14px; padding: 8px 10px 8px 16px; border-radius: 14px; border: 1px solid var(--line2); background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(8px); box-shadow: var(--shadow); }
+.tv-clock { font: 700 22px var(--mono); }
+.tv-tick { font: 600 13px var(--mono); color: var(--dim); }
+
 /* ---------- dar ekran */
 @media (max-width: 1100px) {
   .layout.live { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sess" "orch" "graph" "gantt" "art" "feed"; }
@@ -718,7 +748,7 @@ button.ev-b:hover { background: var(--surface2); }
   :root { --glw: 128px; --colw: 136px; }
   /* iOS Safari 16px altı form alanına odaklanınca sayfayı büyütür ve geri küçültmez */
   .pick select, .login-form input, .search, .pal-in, .fld input, .fld select, .rule-name { font-size: 16px; }
-  .tab { padding: 0 6px; font-size: 12px; }
+  .tab { padding: 0 4px; font-size: 11px; }
   .rule-b { grid-template-columns: minmax(0, 1fr); }
   .top { padding: 8px 16px; gap: 8px; }
   .tabs { order: 3; flex: 1 1 100%; justify-content: stretch; }
