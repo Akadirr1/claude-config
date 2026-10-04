@@ -241,6 +241,29 @@ describe('wf-monitor', () => {
     ])
   })
 
+  test('eşzamanlılık sınırında kuyrukta bekleyen paralel agent aynı dalgada kalır', async ($, on) => {
+    // 2 slot: qa, security-review bitince başlar ama code-review hâlâ sürüyor
+    const rows = [
+      ...ROUND1.slice(0, 5),
+      { type: 'started', key: 'k3', agentId: 'cr000001' },
+      { type: 'started', key: 'k4', agentId: 'sr000001' },
+      { type: 'result', key: 'k4', agentId: 'sr000001', result: { findings: [] } },
+      { type: 'started', key: 'k5', agentId: 'qa000001' },
+      { type: 'result', key: 'k3', agentId: 'cr000001', result: REVIEW },
+      { type: 'result', key: 'k5', agentId: 'qa000001', result: QA },
+      DEV2,
+    ]
+    const { clock, posts } = world(on, [], POST_ENV, rows)
+    await launch($)
+    await clock.advance(2100)
+    const run = lastPost(posts).body.runs[0]
+    expect(run.agents.map(a => [a.label, a.wave])).toEqual([
+      ['ba', 0], ['dev #1', 1], ['code-review #1', 2], ['security-review #1', 2], ['qa #1', 2], ['dev #2', 3],
+    ])
+    expect(run.edges.filter(e => e.to === 'qa000001')).toEqual([{ from: 'dev00001', to: 'qa000001', kind: 'handoff' }])
+    expect(run.edges.filter(e => e.to === 'dev00002').length).toBe(3)
+  })
+
   test('payload\'daki metinler maskelenir', async ($, on) => {
     const secretResult = { type: 'result', key: 'k6', agentId: 'dev00002', result: 'anahtar sk-abcdefghijklmnop1234 ve password=hunter2' }
     const { clock, posts } = world(on, [], POST_ENV, [...ROUND1, DEV2, secretResult])

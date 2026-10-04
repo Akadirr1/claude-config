@@ -397,6 +397,8 @@ button.ev-b:hover { background: var(--surface2); }
   .pick-k { display: none; }
   .meta { gap: 6px; }
   .ago { display: none; }
+  /* iOS mono fontu geniş: üst satır sığsın diye bağlantı metni yalnız ekran okuyucuya */
+  #conn-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .ghost { padding: 0 10px; }
   .layout { padding: 12px 16px 24px; gap: 12px; }
   .rb-name { font-size: 18px; }

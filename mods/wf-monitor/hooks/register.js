@@ -186,7 +186,9 @@ function phasesOf(source) {
 function walk(run, text) {
   const order = []
   let wave = -1
-  let fresh = true // mevcut dalga başladıktan sonra result/failed geldi mi
+  // Yeni dalga ancak mevcut dalganın hepsi bitince başlar: parallel() eşzamanlılık sınırında
+  // kuyrukta bekleyen agent, kardeşlerinden biri bitince başlasa da aynı dalgadadır.
+  const waveOpen = () => order.some(x => x.wave === wave && x.jstatus === 'running')
   const start = id => {
     let a = run.byId.get(id)
     if (!a) {
@@ -194,8 +196,7 @@ function walk(run, text) {
       run.byId.set(id, a)
     }
     if (!order.includes(a)) {
-      if (fresh) wave++
-      fresh = false
+      if (wave < 0 || !waveOpen()) wave++
       a.wave = wave
       a.jstatus = 'running'
       order.push(a)
@@ -216,7 +217,6 @@ function walk(run, text) {
       a.jstatus = row.type === 'result' ? 'done' : 'failed'
       a.endedAt ??= nowMs
       if (row.type === 'result' && !a.result) a.result = summarize(row.result)
-      fresh = true
     }
   }
   run.agents = order
