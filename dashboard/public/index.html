@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="tr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>wf · akış</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<script type="module" src="/app.js"></script>
+</head>
+<body class="app">
+<header class="top">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path class="logo-line" d="M7 16h18M16 7v18"/><polygon class="logo-ba" points="7,10 13,16 7,22 1,16"/><circle class="logo-dev" cx="16" cy="7" r="5"/><rect class="logo-rev" x="20" y="11" width="10" height="10" rx="2"/><polygon class="logo-qa" points="16,20 21,29 11,29"/></svg>
+    <span class="brand-t">wf<span class="brand-dot">·</span>akış</span>
+  </div>
+  <div class="pickers">
+    <label class="pick"><span class="pick-k">Session</span><select id="sess" disabled></select></label>
+    <label class="pick"><span class="pick-k">Run</span><select id="run" disabled></select></label>
+  </div>
+  <div class="meta">
+    <span id="ago" class="ago">veri bekleniyor</span>
+    <span id="conn" class="conn" data-state="wait" role="status"><i aria-hidden="true"></i><span id="conn-t">bağlanıyor</span></span>
+    <button id="theme" class="ghost" type="button">Açık tema</button>
+    <form class="logout" method="post" action="/logout"><button class="ghost" type="submit">Çıkış</button></form>
+  </div>
+</header>
+
+<main class="layout">
+  <section id="runbar" class="runbar" aria-label="Run özeti"></section>
+
+  <section class="panel graph-panel" aria-labelledby="h-graph">
+    <div class="phead">
+      <h2 id="h-graph">Akış</h2>
+      <div id="legend" class="legend"></div>
+    </div>
+    <div id="graph" class="graph"></div>
+  </section>
+
+  <section class="panel feed-panel" aria-labelledby="h-feed">
+    <div class="phead">
+      <h2 id="h-feed">Olaylar</h2>
+      <div id="filters" class="filters" role="group" aria-label="Olay filtresi"></div>
+    </div>
+    <ol id="feed" class="feed"></ol>
+  </section>
+
+  <section class="panel gantt-panel" aria-labelledby="h-gantt">
+    <div class="phead"><h2 id="h-gantt">Zaman çubukları</h2><span class="phint">kim, ne zaman, ne kadar</span></div>
+    <div id="gantt" class="gantt"></div>
+  </section>
+</main>
+
+<div id="scrim" class="scrim" hidden></div>
+<aside id="detail" class="detail" hidden aria-labelledby="d-title"></aside>
+</body>
+</html>
