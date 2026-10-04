@@ -166,7 +166,7 @@ function toast(ev, sid) {
 }
 // yalnız önemli olaylar: run bitişi, hata, uyarı (devirler ve doğumlar akışta kalır)
 setEventSink((sid, ev) => {
-  const important = ev.runEnd || ev.type === 'error' || ev.type === 'warn'
+  const important = ev.runEnd || ev.pr || ev.type === 'error' || ev.type === 'warn'
   if (!important) return
   toast(ev, sid)
   if (notifyOn && 'Notification' in window && Notification.permission === 'granted' && document.hidden) {

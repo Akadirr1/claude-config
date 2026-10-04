@@ -19,6 +19,7 @@ export const TRIGGERS = {
   budget: 'Bütçenin bir yüzdesi aşılınca',
   quiet_agent: 'Agent N dakika sessiz kalınca',
   long_run: 'Workflow N dakikayı geçince',
+  pr_opened: 'PR açılınca',
 }
 export const FORMATS = ['json', 'slack', 'discord', 'ntfy']
 
@@ -234,6 +235,12 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
           for (const a of [...v.subs, ...v.runs.flatMap(r => r.agents)])
             if (a.status === 'failed' && wasAgents.get(a.id) !== 'failed')
               jobs.push(fire(rule, `${rule.id}:fail:${a.id}`, { event: 'agent_failed', title: `✕ ${a.label} hata verdi`, body: `${v.repo} · ${a.cls}`, link: link(v.id), session: v.id, tag: 'x' }))
+        if (tr.type === 'pr_opened') {
+          const had = new Set((prev?.art?.prs ?? []).map(x => x.url))
+          for (const x of v.art?.prs ?? [])
+            if (!had.has(x.url))
+              jobs.push(fire(rule, `${rule.id}:pr:${x.url}`, { event: 'pr_opened', title: `⇡ PR açıldı: ${x.url.replace('https://github.com/', '')}`, body: `${v.repo} · ${fmt(v.totals.cost)} harcandı`, link: x.url, session: v.id, tag: 'rocket' }))
+        }
         if (tr.type === 'session_cost' && v.totals.cost >= tr.usd && (prev?.totals.cost ?? 0) < tr.usd)
           jobs.push(fire(rule, `${rule.id}:scost:${v.id}`, { event: 'session_cost', title: `$ session ${fmt(tr.usd)} eşiğini geçti`, body: `${v.repo} · şu an ${fmt(v.totals.cost)}`, link: link(v.id), session: v.id, tag: 'money_with_wings' }))
       }

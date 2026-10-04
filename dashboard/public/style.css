@@ -217,13 +217,30 @@ a { color: inherit; }
 .layout.live {
   display: grid; gap: 16px;
   grid-template-columns: minmax(0, 1fr) 330px;
-  grid-template-areas: "sess sess" "orch orch" "graph feed" "gantt feed";
+  grid-template-areas: "sess sess" "orch orch" "graph feed" "gantt feed" "art feed";
 }
 .runbar { grid-area: sess; }
 .orch-panel { grid-area: orch; }
 .graph-panel { grid-area: graph; min-height: 360px; }
 .feed-panel { grid-area: feed; }
 .gantt-panel { grid-area: gantt; }
+.art-panel { grid-area: art; }
+.art { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 24px; }
+.art-sec h3 { font: 700 10px var(--mono); text-transform: uppercase; letter-spacing: .14em; color: var(--faint); margin-bottom: 8px; }
+.art-list, .art-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.art-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 13px; }
+.art-list a { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.art-i.pr { color: var(--ok); font-weight: 700; }
+.sha { font: 600 12px var(--mono); color: var(--c-orchestrator, var(--ink)); }
+.art-msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.art-by { display: inline-flex; align-items: center; gap: 4px; min-height: 26px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line2); background: transparent; color: var(--dim); font: 600 11px var(--mono); cursor: pointer; }
+.art-by:hover { color: var(--ink); }
+.art-files li { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.af-bar { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--line) 50%, transparent); overflow: hidden; }
+.af-bar i { display: block; height: 100%; background: var(--dim); border-radius: 3px; }
+.af-p { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.af-by { display: inline-flex; gap: 2px; }
+.art-root { font: 400 11px var(--mono); text-transform: none; letter-spacing: 0; color: var(--faint); overflow-wrap: anywhere; }
 .panel {
   min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
   display: flex; flex-direction: column; overflow: hidden;
@@ -410,6 +427,8 @@ a { color: inherit; }
 .f-end[aria-pressed="true"] .f-dot { background: var(--ok); border-color: var(--ok); }
 .f-error[aria-pressed="true"] .f-dot { background: var(--fail); border-color: var(--fail); }
 .f-warn[aria-pressed="true"] .f-dot { background: var(--warn); border-color: var(--warn); }
+.f-art[aria-pressed="true"] .f-dot { background: var(--graph); border-color: var(--graph); }
+.t-art .ev-i { color: var(--graph); }
 .f-n { color: var(--faint); font-size: 11px; }
 .feed { list-style: none; margin: 0; padding: 6px 0; overflow: auto; flex: 1; }
 .ev-b {
@@ -688,7 +707,7 @@ button.ev-b:hover { background: var(--surface2); }
 
 /* ---------- dar ekran */
 @media (max-width: 1100px) {
-  .layout.live { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sess" "orch" "graph" "gantt" "feed"; }
+  .layout.live { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sess" "orch" "graph" "gantt" "art" "feed"; }
   .feed-panel { position: static; max-height: 460px; }
   .orch-body { grid-template-columns: minmax(0, 1fr); }
   .orch { border-right: 0; border-bottom: 1px solid var(--line); }

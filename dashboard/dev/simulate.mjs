@@ -48,6 +48,7 @@ class Session {
     this.subs = new Map()
     this.runs = new Map()
     this.dirty = new Set()
+    this.art = { files: new Map(), commits: [], prs: [] }
   }
   tick(sec) {
     this.clock += sec * 1000
@@ -69,6 +70,20 @@ class Session {
     if (/graphify/.test(arg)) target.graph.g++
     else if (['Read', 'Grep', 'Glob'].includes(tool)) target.graph.r++
     if (key) this.dirty.add(key)
+    const by = target === this.main ? 'main' : target.id
+    if (tool === 'Edit' || tool === 'Write') {
+      const p = '/home/user/' + this.repo.split('/')[1] + '/' + arg
+      const f = this.art.files.get(p) ?? { p, n: 0, t: this.clock, by: [] }
+      f.n++
+      f.t = this.clock
+      if (!f.by.includes(by)) f.by.push(by)
+      this.art.files.set(p, f)
+    }
+    const m = /git commit -m "(.+)"/.exec(arg)
+    if (tool === 'Bash' && m) this.art.commits.push({ sha: hex(7), branch: 'claude/sim', msg: m[1], t: this.clock, by })
+  }
+  pr(n, by = 'main') {
+    this.art.prs.push({ url: `https://github.com/${this.repo}/pull/${n}`, t: this.clock, by })
   }
   turn(goal) {
     this.main.turns++
@@ -115,7 +130,7 @@ class Session {
     const subs = [...this.subs.values()].filter(s => this.dirty.has('s:' + s.id))
     const runs = [...this.runs.values()].filter(r => this.dirty.has('r:' + r.data.taskId)).map(r => r.view())
     this.dirty.clear()
-    await post({ v: 3, session: { id: this.id, repo: this.repo }, epoch: this.epoch, sentAt: this.clock, main: this.main, misc: { usage: { byModel: {} } }, subs, runs })
+    await post({ v: 3, session: { id: this.id, repo: this.repo }, epoch: this.epoch, sentAt: this.clock, main: this.main, misc: { usage: { byModel: {} } }, subs, runs, art: { ...this.art, files: [...this.art.files.values()] } })
   }
 }
 
@@ -280,6 +295,10 @@ async function liveSession() {
     await wait(s, 6)
   }
   s.endSub(docs, 'done', 'README: Coolify Storages → /app/data')
+  s.tool('Bash', 'git commit -m "README: kalıcı defter volume notu"')
+  s.tool('Bash', 'gh pr create --draft')
+  s.pr(7)
+  await wait(s, 2)
   s.idle('Hepsi hazır: defter kalıcı, maliyet ekranı ve orkestratör paneli eklendi.')
   await wait(s, 1)
   return s

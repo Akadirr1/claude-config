@@ -499,7 +499,7 @@ function renderGantt(v) {
 }
 
 // ---------- olay akışı
-const FILTERS = [['handoff', 'Doğum/devir'], ['end', 'Bitiş'], ['error', 'Hata'], ['warn', 'Uyarı']]
+const FILTERS = [['handoff', 'Doğum/devir'], ['end', 'Bitiş'], ['error', 'Hata'], ['warn', 'Uyarı'], ['art', 'Eser']]
 const filterBtns = FILTERS.map(([k, label]) => {
   const count = h('span', { class: 'f-n num' })
   const b = h('button', { type: 'button', class: `fbtn f-${k}`, 'aria-pressed': 'true', onclick: () => {
@@ -674,6 +674,38 @@ export function renderLive() {
   renderOrch(v)
   renderRunPanel(v, run)
   renderGantt(v)
+  renderArt(v)
   renderFeed(v)
   renderDetail()
+}
+
+// ---------- eserler: commit'ler, PR'lar, değişen dosyalar (kim değiştirdi)
+function agentChip(v, id) {
+  const a = !id || id === 'main' ? v.main : findAgent(v, id)
+  if (!a) return h('span', { class: 'muted small', text: 'agent' })
+  return h('button', { type: 'button', class: 'art-by', onclick: () => openDetail(a.id), tip: a.label }, glyph(a.cls, 14), h('span', { text: a.main ? 'Şef' : clip(a.label, 22) }))
+}
+function commonDir(paths) {
+  if (paths.length < 2) return paths[0]?.replace(/[^/]*$/, '') ?? ''
+  let pre = paths[0]
+  for (const p of paths) while (!p.startsWith(pre)) pre = pre.slice(0, -1)
+  return pre.replace(/[^/]*$/, '')
+}
+function renderArt(v) {
+  const box = $('art')
+  const a = v?.art
+  const n = a ? a.files.length + a.commits.length + a.prs.length : 0
+  $('art-panel').hidden = !n
+  if (!n) return box.replaceChildren()
+  const root = commonDir(a.files.map(f => f.p))
+  const maxN = Math.max(1, ...a.files.map(f => f.n))
+  box.replaceChildren(
+    a.prs.length ? h('div', { class: 'art-sec' }, h('h3', { text: `Pull request · ${a.prs.length}` }), h('ul', { class: 'art-list' }, a.prs.map(x =>
+      h('li', {}, h('span', { class: 'art-i pr', 'aria-hidden': 'true', text: '⇡' }), h('a', { href: x.url, target: '_blank', rel: 'noopener noreferrer', class: 'mono', text: x.url.replace('https://github.com/', '') }), agentChip(v, x.by))))) : null,
+    a.commits.length ? h('div', { class: 'art-sec' }, h('h3', { text: `Commit · ${a.commits.length}` }), h('ol', { class: 'art-list' }, a.commits.slice(-30).reverse().map(c =>
+      h('li', {}, h('code', { class: 'sha', text: c.sha.slice(0, 7) }), h('span', { class: 'art-msg', text: c.msg, tip: `${c.branch} · ${fmtClock(c.t)}` }), agentChip(v, c.by))))) : null,
+    a.files.length ? h('div', { class: 'art-sec' }, h('h3', {}, `Değişen dosya · ${a.files.length}`, root ? h('span', { class: 'art-root', text: ` ${root}` }) : null),
+      h('ul', { class: 'art-files' }, a.files.slice(0, 40).map(f =>
+        h('li', { tip: `${f.p} · ${f.n} düzenleme` }, h('span', { class: 'af-bar' }, h('i', { style: `width:${(f.n / maxN) * 100}%` })), h('span', { class: 'mono af-p', text: f.p.slice(root.length) || f.p }), h('span', { class: 'af-by' }, f.by.slice(0, 3).map(id => { const ag = id === 'main' ? v.main : findAgent(v, id); return ag ? glyph(ag.cls, 12) : null }))))),
+      a.files.length > 40 ? h('p', { class: 'muted small', text: `+${a.files.length - 40} dosya daha` }) : null) : null)
 }

@@ -146,3 +146,13 @@ test('sunucu: otomasyon API oturum, aynı köken ve JSON ister; push run_end tet
   assert.equal(sent.length, 1)
   assert.match(JSON.parse(sent[0].body).title, /feature tamamlandı/)
 })
+
+test('pr_opened: yeni PR bir kez bildirilir, bağlantı PR\'ın kendisi', async () => {
+  const { a, sent } = harness({ rules: [hook({ type: 'pr_opened' })] })
+  const pr = url => ({ art: { prs: [{ url }] } })
+  await a.onIngest(view([], pr('https://github.com/o/r/pull/1')), view([], { art: { prs: [{ url: 'https://github.com/o/r/pull/1' }, { url: 'https://github.com/o/r/pull/2' }] } }), [])
+  assert.equal(sent.length, 1)
+  const m = JSON.parse(sent[0].body)
+  assert.equal(m.link, 'https://github.com/o/r/pull/2')
+  assert.match(m.title, /o\/r\/pull\/2/)
+})

@@ -13,6 +13,8 @@ const DETAIL_CACHE = 100
 const LIVE_MS = 90 * 1000
 const DAY = 86400 * 1000
 
+const PR_RE = /^https:\/\/github\.com\/[\w.-]{1,100}\/[\w.-]{1,100}\/pull\/\d{1,9}$/
+const MAX_FILES = 500, MAX_COMMITS = 200, MAX_PRS = 50
 const isObj = v => v && typeof v === 'object' && !Array.isArray(v)
 const num = v => (Number.isFinite(v) ? v : 0)
 const str = (v, n = 400) => (typeof v === 'string' ? v.slice(0, n) : '')
@@ -78,12 +80,40 @@ export function merge(prev, raw, receivedAt) {
     const keys = Object.keys(map)
     for (const k of keys.slice(0, Math.max(0, keys.length - MAX_EPOCHS))) delete map[k]
   }
+  if (body.art !== undefined) rec.art = mergeArt(rec.art, body.art)
   for (const s of body.subs ?? []) rec.subs[s.id] = s
   for (const r of body.runs) rec.runs[r.taskId] = r
   cap(rec.subs, MAX_SUBS, s => num(s.startedAt))
   cap(rec.runs, MAX_RUNS, r => num(r.startedAt))
   return rec
 }
+
+// Eserler: mod her seferinde kendi tam listesini yollar; epoch'lar arası birleşsin diye anahtarla upsert edilir.
+// PR bağlantısı panelde <a href> olur: yalnız github.com/…/pull/N biçimi kabul edilir.
+function mergeArt(prev, a) {
+  const out = prev ?? { files: {}, commits: {}, prs: {} }
+  if (!isObj(a)) return out
+  const by = v => (Array.isArray(v) ? v : [v]).filter(x => typeof x === 'string').slice(0, 6).map(x => str(x, 80))
+  for (const f of Array.isArray(a.files) ? a.files.slice(0, MAX_FILES) : []) {
+    if (!isObj(f) || typeof f.p !== 'string' || !f.p) continue
+    const p = str(f.p, 300)
+    const old = out.files[p]
+    out.files[p] = { p, n: Math.max(num(f.n), num(old?.n)), t: Math.max(num(f.t), num(old?.t)), by: [...new Set([...(old?.by ?? []), ...by(f.by)])].slice(0, 6) }
+  }
+  for (const c of Array.isArray(a.commits) ? a.commits.slice(0, MAX_COMMITS) : [])
+    if (isObj(c) && /^[0-9a-f]{7,40}$/.test(c.sha ?? '')) out.commits[c.sha] = { sha: c.sha, branch: str(c.branch, 200), msg: str(c.msg, 300), t: num(c.t), by: by(c.by)[0] ?? '' }
+  for (const x of Array.isArray(a.prs) ? a.prs.slice(0, MAX_PRS) : [])
+    if (isObj(x) && PR_RE.test(x.url ?? '') && !out.prs[x.url]) out.prs[x.url] = { url: x.url, t: num(x.t), by: by(x.by)[0] ?? '' }
+  cap(out.files, MAX_FILES, f => f.t)
+  cap(out.commits, MAX_COMMITS, c => c.t)
+  cap(out.prs, MAX_PRS, x => x.t)
+  return out
+}
+const artView = a => ({
+  files: Object.values(a?.files ?? {}).sort((x, y) => y.t - x.t),
+  commits: Object.values(a?.commits ?? {}).sort((x, y) => x.t - y.t),
+  prs: Object.values(a?.prs ?? {}).sort((x, y) => x.t - y.t),
+})
 
 function cap(map, max, key) {
   const keys = Object.keys(map)
@@ -109,7 +139,7 @@ export function view(rec, prices = PRICES) {
     .map(r => ({ ...r, agents: (Array.isArray(r.agents) ? r.agents : []).filter(isObj).map(a => dress(a)) }))
     .sort((a, b) => num(a.startedAt) - num(b.startedAt))
   const misc = tally(miscUsage, prices)
-  return { id: rec.id, repo: rec.repo, branch: rec.branch, firstAt: rec.firstAt, receivedAt: rec.receivedAt, sentAt: rec.sentAt, main, subs, runs, misc, totals: totals(main, subs, runs, misc) }
+  return { id: rec.id, repo: rec.repo, branch: rec.branch, firstAt: rec.firstAt, receivedAt: rec.receivedAt, sentAt: rec.sentAt, main, subs, runs, misc, art: artView(rec.art), totals: totals(main, subs, runs, misc) }
 }
 
 function totals(main, subs, runs, misc) {
@@ -173,6 +203,7 @@ export function summary(v) {
     live: running(v), totals: { ...v.totals, byModel: undefined },
     runs: v.runs.map(r => ({ taskId: r.taskId, name: str(r.name, 120), status: r.status, startedAt: r.startedAt, endedAt: r.endedAt })),
     subs: v.subs.length,
+    art: { files: v.art.files.length, commits: v.art.commits.length, prs: v.art.prs.map(x => x.url) },
   }
 }
 
@@ -352,7 +383,7 @@ export function createStore({ dataDir, prices = PRICES, log = () => {} } = {}) {
       const pushed = new Set((body.subs ?? []).map(x => x.id))
       const pushedRuns = new Set(body.runs.map(x => x.taskId))
       const patch = {
-        main: v.main, misc: v.misc, totals: v.totals, receivedAt: v.receivedAt, sentAt: v.sentAt, repo: v.repo,
+        main: v.main, misc: v.misc, totals: v.totals, ...(body.art !== undefined && { art: v.art }), receivedAt: v.receivedAt, sentAt: v.sentAt, repo: v.repo,
         subs: v.subs.filter(x => pushed.has(x.id)),
         runs: v.runs.filter(x => pushedRuns.has(x.taskId)),
       }

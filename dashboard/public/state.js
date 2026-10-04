@@ -8,7 +8,7 @@ export const S = {
   off: 0, // sunucu saati − tarayıcı saati
   route: 'live',
   sid: null, tid: null, pinned: false, agentId: null,
-  filters: { handoff: true, end: true, error: true, warn: true },
+  filters: { handoff: true, end: true, error: true, warn: true, art: true },
   logs: new Map(), // sid -> Map(olay anahtarı -> olay)
   seen: new Map(), // sid -> Set(animasyonu oynamış düğüm/kenar anahtarları)
   samples: new Map(), // sid -> [{ t, cost }] (yanma hızı)
@@ -88,7 +88,18 @@ export function normView(v) {
     subs: each(o.subs, x => normAgent(x)),
     runs: each(o.runs, normRun),
     misc: tokens(o.misc),
+    art: normArt(o.art),
     totals: normTotals(o.totals),
+  }
+}
+// eserler: PR bağlantısı yalnız github.com/…/pull/N ise bağlantı olur (sunucu da süzer)
+export const PR_RE = /^https:\/\/github\.com\/[\w.-]{1,100}\/[\w.-]{1,100}\/pull\/\d{1,9}$/
+function normArt(a) {
+  const o = obj(a)
+  return {
+    files: each(o.files, f => (str(f?.p) ? { p: str(f.p), n: num(f.n) ?? 1, t: num(f.t) ?? 0, by: arr(f.by).map(str) } : null)),
+    commits: each(o.commits, c => (str(c?.sha) ? { sha: str(c.sha), branch: str(c.branch), msg: str(c.msg), t: num(c.t) ?? 0, by: str(c.by) } : null)),
+    prs: each(o.prs, x => (PR_RE.test(str(x?.url)) ? { url: str(x.url), t: num(x.t) ?? 0, by: str(x.by) } : null)),
   }
 }
 function normTotals(t) {
@@ -184,6 +195,12 @@ function logDiff(sid, prev, next, quiet) {
     if (r.status !== 'running' && r.status !== pr?.status)
       add(`re${r.taskId}`, { type: r.status === 'done' ? 'end' : 'error', icon: STATUS[r.status].i, t: r.endedAt ?? r.startedAt, run: r.taskId, text: `Workflow ${r.name} ${RUN_STATUS[r.status]}`, runEnd: r.status }, true)
   }
+  const who = id => (!id || id === 'main' ? 'Şef' : next.subs.find(x => x.id === id)?.label ?? next.runs.flatMap(r => r.agents).find(x => x.id === id)?.label ?? 'agent')
+  const agentOf = id => (id && id !== 'main' ? id : undefined)
+  for (const c of next.art?.commits ?? [])
+    add(`c${c.sha}`, { type: 'art', icon: '⊙', t: c.t, agent: agentOf(c.by), text: `${who(c.by)} commit ${c.sha.slice(0, 7)}: ${c.msg}` })
+  for (const x of next.art?.prs ?? [])
+    add(`p${x.url}`, { type: 'art', icon: '⇡', t: x.t, agent: agentOf(x.by), pr: true, text: `${who(x.by)} PR açtı: ${x.url.replace('https://github.com/', '')}` })
   for (const ev of fresh) onEvent(sid, ev)
 }
 const endText = a => (a.status === 'done' ? `${a.label} bitti` : a.status === 'failed' ? `${a.label} hata verdi` : `${a.label} durduruldu`)
@@ -230,6 +247,7 @@ export function applyPatch(sid, raw) {
     if (p.main) next.main = normAgent(p.main, { main: true, kind: 'main', startedAt: prev.firstAt })
     if (p.misc) next.misc = tokens(p.misc)
     if (p.totals) next.totals = normTotals(p.totals)
+    if (p.art) next.art = normArt(p.art)
     for (const x of each(p.subs, y => normAgent(y))) {
       const i = next.subs.findIndex(y => y.id === x.id)
       i >= 0 ? (next.subs[i] = x) : next.subs.push(x)

@@ -11,6 +11,7 @@ const PRESETS = [
   ['Günlük bütçenin %80\'i', { type: 'budget', period: 'daily', pct: 80 }, 'ntfy'],
   ['Session $5\'ı geçince', { type: 'session_cost', usd: 5 }, 'slack'],
   ['Agent 10 dk sessiz', { type: 'quiet_agent', min: 10 }, 'discord'],
+  ['PR açılınca', { type: 'pr_opened' }, 'ntfy'],
 ]
 const uid = () => 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
 
