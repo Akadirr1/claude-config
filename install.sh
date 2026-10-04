@@ -14,6 +14,10 @@ pip install graphifyy >> $LOG 2>&1 && graphify install >> $LOG 2>&1 || echo "FAI
 # Archify (diyagram skill'i, ~/.claude/skills/ altına)
 npx -y skills add tt-a1i/archify --skill archify --agent claude-code --global --copy --yes >> $LOG 2>&1 || echo "FAIL: archify" >> $LOG
 
+# Git kimliği: commit'ler Claude adına değil benim adıma atılsın (ortam ~/.gitconfig'e Claude yazıyor)
+git config --global user.name "Abdülkadir" && git config --global user.email "142748452+Akadirr1@users.noreply.github.com" \
+  && echo "OK: git identity" >> $LOG || echo "FAIL: git identity" >> $LOG
+
 # Agent'lar
 mkdir -p ~/.claude/agents
 cp "$DIR"/agents/*.md ~/.claude/agents/ && echo "OK: agents" >> $LOG || echo "FAIL: agents" >> $LOG
