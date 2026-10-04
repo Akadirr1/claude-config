@@ -56,8 +56,9 @@ const STATUS = {
 }
 const RUN_STATUS = { running: 'sürüyor', done: 'tamamlandı', failed: 'başarısız', stopped: 'durduruldu' }
 const SEVERITY = { Critical: 'critical', Important: 'important', Minor: 'minor' }
-const roleKey = r => (Object.hasOwn(ROLES, r) ? r : 'other')
-const stKey = x => (Object.hasOwn(STATUS, x) ? x : 'stopped')
+const sevKey = k => (Object.hasOwn(SEVERITY, k) ? SEVERITY[k] : 'other')
+const roleKey = r => (typeof r === 'string' && Object.hasOwn(ROLES, r) ? r : 'other')
+const stKey = x => (typeof x === 'string' && Object.hasOwn(STATUS, x) ? x : 'stopped')
 
 // ---------- biçimlendirme
 const pad = n => String(n).padStart(2, '0')
@@ -76,8 +77,11 @@ function fmtAgo(ms) {
 // ---------- gelen veriyi düzle (şekil bozuksa kırılmasın)
 const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 const arr = v => (Array.isArray(v) ? v : [])
-const str = v => (v == null ? '' : String(v))
+const str = v => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '')
+// Bozuk tek bir öğe listenin geri kalanını düşürmesin; f null dönerse öğe atlanır.
+const each = (xs, f) => arr(xs).flatMap(x => { try { const v = f(x); return v == null ? [] : [v] } catch { return [] } })
 function normRun(r) {
+  if (!r || typeof r !== 'object' || !str(r.taskId)) return null
   const startedAt = num(r.startedAt) ?? 0
   return {
     taskId: str(r.taskId),
@@ -86,7 +90,7 @@ function normRun(r) {
     startedAt,
     endedAt: num(r.endedAt),
     phases: arr(r.phases).map(str),
-    agents: arr(r.agents).filter(a => a && a.id != null).map(a => ({
+    agents: each(r.agents, a => (!a || typeof a !== 'object' || !str(a.id) ? null : {
       id: str(a.id),
       label: str(a.label) || str(a.id),
       phase: a.phase == null ? null : str(a.phase),
@@ -98,24 +102,25 @@ function normRun(r) {
       steps: arr(a.steps).filter(x => x && typeof x === 'object').map(x => ({ t: num(x.t), text: str(x.text) })),
       result: a.result && typeof a.result === 'object' ? a.result : null,
     })),
-    edges: arr(r.edges).filter(e => e && e.from != null && e.to != null)
-      .map(e => ({ from: str(e.from), to: str(e.to), kind: e.kind === 'loop' ? 'loop' : 'handoff' })),
+    edges: each(r.edges, e => (!e || typeof e !== 'object' || !str(e.from) || !str(e.to) ? null
+      : { from: str(e.from), to: str(e.to), kind: e.kind === 'loop' ? 'loop' : 'handoff' })),
   }
 }
 function normSession(x) {
   const receivedAt = num(x.receivedAt) ?? Date.now()
-  return { id: str(x.id), repo: str(x.repo), receivedAt, sentAt: num(x.sentAt) ?? receivedAt, runs: arr(x.runs).filter(r => r && r.taskId != null).map(normRun) }
+  return { id: str(x.id), repo: str(x.repo), receivedAt, sentAt: num(x.sentAt) ?? receivedAt, runs: each(x.runs, normRun) }
 }
 
 // ---------- durum
 const S = {
   sessions: new Map(),
   off: 0, // sunucu saati − tarayıcı saati
-  sid: null, tid: null, pinned: false,
+  sid: null, tid: null,
+  pinned: false, // kullanıcı seçiciyle seçti ya da detay açtı: görünüm push'larla değişmez
   agentId: null,
   filters: { handoff: true, end: true, error: true },
-  logs: new Map(), // "sid|taskId" -> Map(olay anahtarı -> olay)
-  seen: new Set(), // animasyonu oynamış kenar/düğüm anahtarları
+  logs: new Map(), // sid -> taskId -> Map(olay anahtarı -> olay)
+  seen: new Map(), // sid -> taskId -> Set(animasyonu oynamış kenar/düğüm anahtarları)
   shown: null, // son çizilen run anahtarı
   live: [], // saniyede bir çalışan güncelleyiciler
   redraw: null,
@@ -128,6 +133,18 @@ const lastStepT = a => a.steps.reduce((m, x) => (x.t != null && x.t > m ? x.t : 
 const agentEnd = (a, r, sess) => a.endedAt ?? (a.status === 'running' ? modNow(sess) : r.endedAt ?? lastStepT(a))
 const runEnd = (r, sess) => r.endedAt ?? (r.status === 'running' ? modNow(sess) : Math.max(r.startedAt, ...r.agents.map(a => agentEnd(a, r, sess))))
 const newest = sess => sess.runs.reduce((m, r) => (!m || r.startedAt > m.startedAt ? r : m), null)
+function bucket(store, sid, tid, make) {
+  let m = store.get(sid)
+  if (!m) store.set(sid, (m = new Map()))
+  let b = m.get(tid)
+  if (!b) m.set(tid, (b = make()))
+  return b
+}
+function dropSession(id) {
+  S.sessions.delete(id)
+  S.logs.delete(id)
+  S.seen.delete(id)
+}
 function current() {
   const sess = S.sessions.get(S.sid)
   return { sess, run: sess?.runs.find(r => r.taskId === S.tid) }
@@ -135,10 +152,9 @@ function current() {
 
 // Olaylar ardışık snapshot'ların farkından türetilir; anahtar aynı olayı iki kez yazmaz.
 function logDiff(sid, prev, run) {
-  const key = runKey(sid, run.taskId)
-  let log = S.logs.get(key)
-  if (!log) S.logs.set(key, (log = new Map()))
+  const log = bucket(S.logs, sid, run.taskId, () => new Map())
   const add = (k, ev) => { if (!log.has(k)) log.set(k, ev) }
+  // Bitiş kayıtları düzeltilebilir (done tahmini sonradan failed olabilir): üstüne yaz.
   const byId = new Map(run.agents.map(a => [a.id, a]))
   const was = new Map((prev?.agents ?? []).map(a => [a.id, a]))
   const hadEdge = new Set((prev?.edges ?? []).map(e => `${e.from}>${e.to}`))
@@ -147,7 +163,7 @@ function logDiff(sid, prev, run) {
       add(`s${a.id}`, { type: 'handoff', icon: '▶', t: a.startedAt, agent: a.id, text: `${a.label} başladı` })
     if (a.status !== 'running' && a.status !== was.get(a.id)?.status) {
       const text = a.status === 'done' ? `${a.label} bitti` : a.status === 'failed' ? `${a.label} hata verdi` : `${a.label} durduruldu`
-      add(`e${a.id}`, { type: a.status === 'done' ? 'end' : 'error', icon: STATUS[a.status].i, t: a.endedAt ?? run.endedAt ?? lastStepT(a), agent: a.id, text })
+      log.set(`e${a.id}`, { type: a.status === 'done' ? 'end' : 'error', icon: STATUS[a.status].i, t: a.endedAt ?? run.endedAt ?? lastStepT(a), agent: a.id, text })
     }
   }
   for (const e of run.edges) {
@@ -157,23 +173,32 @@ function logDiff(sid, prev, run) {
     add(`h${e.from}>${e.to}`, { type: 'handoff', icon: loop ? '↺' : '→', loop, t: to.startedAt, agent: to.id, text: `${from.label} → ${to.label}${loop ? ` (tur ${to.round})` : ''}` })
   }
   if (run.status !== 'running' && run.status !== prev?.status)
-    add('run', { type: run.status === 'done' ? 'end' : 'error', icon: STATUS[run.status].i, t: run.endedAt ?? run.startedAt, text: `Run ${RUN_STATUS[run.status]}` })
+    log.set('run', { type: run.status === 'done' ? 'end' : 'error', icon: STATUS[run.status].i, t: run.endedAt ?? run.startedAt, text: `Run ${RUN_STATUS[run.status]}` })
 }
 
+// Session id'sini döner; veri işlenemezse null.
 function ingest(raw, serverNowAt) {
   if (num(serverNowAt) != null) S.off = serverNowAt - Date.now()
-  const sess = normSession(raw)
-  if (!sess.id) return
-  const prev = new Map((S.sessions.get(sess.id)?.runs ?? []).map(r => [r.taskId, r]))
-  for (const r of sess.runs) logDiff(sess.id, prev.get(r.taskId), r)
-  S.sessions.set(sess.id, sess)
+  if (!raw || typeof raw !== 'object') return null
+  try {
+    const sess = normSession(raw)
+    if (!sess.id) return null
+    const prev = new Map((S.sessions.get(sess.id)?.runs ?? []).map(r => [r.taskId, r]))
+    for (const r of sess.runs) logDiff(sess.id, prev.get(r.taskId), r)
+    S.sessions.set(sess.id, sess)
+    // sunucunun düşürdüğü run'ların olay/animasyon kayıtları da gitsin
+    const ids = new Set(sess.runs.map(r => r.taskId))
+    for (const store of [S.logs, S.seen]) for (const tid of store.get(sess.id)?.keys() ?? []) if (!ids.has(tid)) store.get(sess.id).delete(tid)
+    return sess.id
+  } catch { return null }
 }
 
-// Varsayılan: en son güncellenen session'ın en yeni run'ı. Kullanıcı seçtiyse seçim kalır.
+// Kilit yoksa en son güncellenen session'ın en yeni run'ı izlenir. Kilitliyse seçim kalır;
+// kilitli session düşerse otomatiğe döner, kilitli run düşerse o session'ın en yenisine geçer.
 function pickDefault() {
-  const pinnedSess = S.pinned && S.sessions.get(S.sid)
-  if (pinnedSess) {
-    if (!pinnedSess.runs.some(r => r.taskId === S.tid)) S.tid = newest(pinnedSess)?.taskId ?? null
+  const sess = S.pinned && S.sessions.get(S.sid)
+  if (sess) {
+    if (!sess.runs.some(r => r.taskId === S.tid)) S.tid = newest(sess)?.taskId ?? null
     return
   }
   S.pinned = false
@@ -198,21 +223,21 @@ function renderPickers() {
   const sessList = [...S.sessions.values()].sort((a, b) => b.receivedAt - a.receivedAt)
   const sess = S.sessions.get(S.sid)
   const runs = sess ? [...sess.runs].sort((a, b) => b.startedAt - a.startedAt) : []
-  const sig = JSON.stringify([S.sid, S.tid, sessList.map(x => [x.id, x.repo]), runs.map(r => [r.taskId, r.status])])
+  const sig = JSON.stringify([S.pinned, S.sid, S.tid, sessList.map(x => [x.id, x.repo]), runs.map(r => [r.taskId, r.status])])
   if (sig === selSig) return
   selSig = sig
   const ss = $('sess'), rs = $('run')
-  ss.replaceChildren(...sessList.map(x => h('option', { value: x.id, text: `${x.repo || 'repo?'} · ${x.id.slice(-6)}` })))
+  ss.replaceChildren(h('option', { value: '', text: 'otomatik (en yeni)' }), ...sessList.map(x => h('option', { value: x.id, text: `${x.repo || 'repo?'} · ${x.id.slice(-6)}` })))
   rs.replaceChildren(...runs.map(r => h('option', { value: r.taskId, text: `${r.name} · ${fmtShort(r.startedAt)} · ${STATUS[r.status].i} ${RUN_STATUS[r.status]}` })))
-  ss.value = S.sid ?? ''
+  ss.value = S.pinned ? S.sid ?? '' : ''
   rs.value = S.tid ?? ''
   ss.disabled = !sessList.length
   rs.disabled = !runs.length
 }
 $('sess').addEventListener('change', e => {
   const sess = S.sessions.get(e.target.value)
-  if (!sess) return
-  Object.assign(S, { sid: sess.id, tid: newest(sess)?.taskId ?? null, pinned: true, agentId: null })
+  if (sess) Object.assign(S, { sid: sess.id, tid: newest(sess)?.taskId ?? null, pinned: true, agentId: null })
+  else { Object.assign(S, { pinned: false, agentId: null }); pickDefault() } // "otomatik (en yeni)"
   render()
 })
 $('run').addEventListener('change', e => {
@@ -269,6 +294,7 @@ function renderGraph(sess, run, animate) {
   const colHeads = V ? roundHeads : phaseHeads, rowHeads = V ? phaseHeads : roundHeads
   const colIdx = a => (V ? a.round - 1 : colOf(a))
 
+  const seen = bucket(S.seen, sess.id, run.taskId, () => new Set())
   const cells = new Map()
   const nodes = new Map()
   for (const a of run.agents) {
@@ -277,9 +303,9 @@ function renderGraph(sess, run, animate) {
     const el = nodeEl(sess, run, a)
     nodes.set(a.id, el)
     cells.get(ck).append(el)
-    const k = `n|${run.taskId}|${a.id}`
-    if (animate && !S.seen.has(k) && motion()) el.animate([{ opacity: 0, transform: 'translateY(6px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.7,.2,1)' })
-    S.seen.add(k)
+    const k = `n${a.id}`
+    if (animate && !seen.has(k) && motion()) el.animate([{ opacity: 0, transform: 'translateY(6px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.7,.2,1)' })
+    seen.add(k)
   }
 
   const svg = s('svg', { class: 'edges', 'aria-hidden': 'true' })
@@ -289,7 +315,7 @@ function renderGraph(sess, run, animate) {
   if (V && (!animate || rounds > S.rounds)) box.scrollLeft = box.scrollWidth
   S.rounds = rounds
   let first = animate
-  S.redraw = () => { drawEdges({ canvas, svg, grid, run, nodes, colHeads, rowHeads, colIdx, colOf, V }, first); first = false }
+  S.redraw = () => { drawEdges({ canvas, svg, grid, run, seen, nodes, colHeads, rowHeads, colIdx, colOf, V }, first); first = false }
   ro.disconnect()
   ro.observe(canvas)
 }
@@ -331,7 +357,7 @@ function roundPath(p, r = 9) {
   return `${d} L${lx},${ly}`
 }
 
-function drawEdges({ canvas, svg, grid, run, nodes, colHeads, rowHeads, colIdx, colOf, V }, animate) {
+function drawEdges({ canvas, svg, grid, run, seen, nodes, colHeads, rowHeads, colIdx, colOf, V }, animate) {
   const base = canvas.getBoundingClientRect()
   const box = el => {
     const r = el.getBoundingClientRect()
@@ -380,9 +406,9 @@ function drawEdges({ canvas, svg, grid, run, nodes, colHeads, rowHeads, colIdx, 
     const kind = loop ? 'loop' : 'handoff'
     const path = s('path', { d, class: `edge ${kind} from-${A.role}`, 'marker-end': `url(#mk-${loop ? 'loop' : B.role})` })
     paths.push(path)
-    const k = `e|${run.taskId}|${e.from}>${e.to}`
-    if (animate && !S.seen.has(k) && motion()) flows.push([path, s('path', { d, class: `flow ${kind}` })])
-    S.seen.add(k)
+    const k = `e${e.from}>${e.to}`
+    if (animate && !seen.has(k) && motion()) flows.push([path, s('path', { d, class: `flow ${kind}` })])
+    seen.add(k)
   })
   const labels = [...tags.values()].map(([x, y, round]) =>
     s('text', { x, y, class: 'loop-tag', text: `↺ tur ${round}` }))
@@ -454,7 +480,7 @@ $('filters').replaceChildren(...filterBtns.map(x => x[1]))
 
 function renderFeed(run) {
   const list = $('feed')
-  const evs = run ? [...(S.logs.get(runKey(S.sid, run.taskId))?.values() ?? [])] : []
+  const evs = run ? [...(S.logs.get(S.sid)?.get(run.taskId)?.values() ?? [])] : []
   for (const [k, b] of filterBtns) b.count.textContent = String(evs.filter(e => e.type === k).length)
   const shown = evs.filter(e => S.filters[e.type]).sort((a, b) => b.t - a.t)
   if (!shown.length) return list.replaceChildren(h('li', { class: 'muted pad', text: run ? 'Bu filtrede olay yok.' : 'Run seçilmedi.' }))
@@ -486,13 +512,14 @@ function resultView(res, a) {
   if (res.kind === 'review') {
     const fs = arr(res.findings).filter(f => f && typeof f === 'object')
     if (!fs.length) return h('p', { class: 'clean', text: '✓ Bulgu yok' })
-    const counts = Object.entries(fs.reduce((m, f) => ({ ...m, [str(f.severity)]: (m[str(f.severity)] ?? 0) + 1 }), {}))
+    const counts = new Map()
+    for (const f of fs) counts.set(str(f.severity), (counts.get(str(f.severity)) ?? 0) + 1)
     return h('div', {},
-      h('p', { class: 'sev-sum' }, counts.map(([k, n]) => h('span', { class: `sev sev-${SEVERITY[k] ?? 'other'}`, text: `${n} ${k}` }))),
-      fs.map(f => h('article', { class: `finding f-${SEVERITY[str(f.severity)] ?? 'other'}` },
-        h('header', {}, h('span', { class: `sev sev-${SEVERITY[str(f.severity)] ?? 'other'}`, text: str(f.severity) || '?' }), h('code', { class: 'where', text: str(f.where) })),
+      h('p', { class: 'sev-sum' }, [...counts].map(([k, n]) => h('span', { class: `sev sev-${sevKey(k)}`, text: `${n} ${k || '?'}` }))),
+      fs.map(f => h('article', { class: `finding f-${sevKey(str(f.severity))}` },
+        h('header', {}, h('span', { class: `sev sev-${sevKey(str(f.severity))}`, text: str(f.severity) || '?' }), h('code', { class: 'where', text: str(f.where) })),
         h('p', { text: str(f.issue) }),
-        f.fix ? h('p', { class: 'fix' }, h('span', { class: 'fix-k', text: 'Öneri → ' }), str(f.fix)) : null)))
+        str(f.fix) ? h('p', { class: 'fix' }, h('span', { class: 'fix-k', text: 'Öneri → ' }), str(f.fix)) : null)))
   }
   if (res.kind === 'qa') {
     const checks = arr(res.checks).filter(c => c && typeof c === 'object')
@@ -507,18 +534,29 @@ function resultView(res, a) {
   return h('p', { class: 'muted', text: 'Bilinmeyen sonuç türü.' })
 }
 
+// Süre her saniye güncel veriden okunur; böylece panel yeniden kurulmadan da doğru kalır.
+let detailSig = '', detailDur = null
+const detailTick = () => {
+  const { sess, run } = current(), a = run?.agents.find(x => x.id === S.agentId)
+  if (a && detailDur) detailDur.textContent = fmtDur(agentEnd(a, run, sess) - a.startedAt)
+}
 function renderDetail() {
   const box = $('detail'), { sess, run } = current()
   const a = run?.agents.find(x => x.id === S.agentId)
   if (!a) {
+    detailSig = ''
     box.hidden = true
     $('scrim').hidden = true
     return
   }
+  S.live.push(detailTick)
+  // Agent verisi değişmediyse paneli yeniden kurma (metin seçimi ve kaydırma korunur).
+  const sig = JSON.stringify([sess.id, run.taskId, a])
+  if (sig === detailSig) return
+  detailSig = sig
   const keep = box.querySelector('.d-body')?.scrollTop ?? 0
   const R = ROLES[a.role]
-  const dur = h('dd', { class: 'num' })
-  S.live.push(() => { dur.textContent = fmtDur(agentEnd(a, run, sess) - a.startedAt) })
+  const dur = (detailDur = h('dd', { class: 'num' }))
   const fact = (k, v) => h('div', {}, h('dt', { text: k }), typeof v === 'string' ? h('dd', { text: v }) : v)
   const steps = a.steps.length
     ? h('ol', { class: 'timeline' }, a.steps.map((x, i) => h('li', { class: i === a.steps.length - 1 && a.status === 'running' ? 'now' : '' },
@@ -544,6 +582,7 @@ function renderDetail() {
 }
 function openDetail(id) {
   S.agentId = id
+  S.pinned = true
   render()
   $('detail').querySelector('.d-close')?.focus({ preventScroll: true })
 }
@@ -571,7 +610,7 @@ function render() {
   const key = run ? runKey(sess.id, run.taskId) : null
   const animate = key !== null && key === S.shown // run değişince eskileri canlandırma
   S.shown = key
-  if (run && S.agentId && !run.agents.some(a => a.id === S.agentId)) S.agentId = null
+  if (S.agentId && !run?.agents.some(a => a.id === S.agentId)) S.agentId = null
   renderRunbar(sess, run)
   renderGraph(sess, run, animate)
   renderGantt(sess, run)
@@ -604,23 +643,26 @@ function connect() {
     const d = parse(ev)
     if (!d) return
     const ids = new Set()
-    for (const x of arr(d.sessions)) { ingest(x, d.serverNow); ids.add(str(x.id)) }
-    for (const id of [...S.sessions.keys()]) if (!ids.has(id)) S.sessions.delete(id)
+    for (const x of arr(d.sessions)) { const id = ingest(x, d.serverNow); if (id) ids.add(id) }
+    for (const id of [...S.sessions.keys()]) if (!ids.has(id)) dropSession(id)
     pickDefault()
     render()
   })
   es.addEventListener('session', ev => {
     const d = parse(ev)
     if (!d?.session) return
-    ingest(d.session, d.serverNow)
+    const was = `${S.sid}|${S.tid}`
+    const id = ingest(d.session, d.serverNow)
     pickDefault()
-    render()
+    // görüntülenmeyen session'ın push'u yalnız seçicileri değiştirir
+    if (id === S.sid || was !== `${S.sid}|${S.tid}`) render()
+    else renderPickers()
   })
   es.addEventListener('remove', ev => {
     const d = parse(ev)
     if (!d) return
     if (num(d.serverNow) != null) S.off = d.serverNow - Date.now()
-    S.sessions.delete(str(d.id))
+    dropSession(str(d.id))
     pickDefault()
     render()
   })

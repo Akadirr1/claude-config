@@ -4,7 +4,8 @@ try {
 } catch {}
 
 const MESSAGES = { bad: 'Token yanlış.', rate: 'Çok fazla deneme, biraz bekle.' }
-const msg = MESSAGES[new URLSearchParams(location.search).get('e')]
+const code = new URLSearchParams(location.search).get('e')
+const msg = Object.hasOwn(MESSAGES, code) ? MESSAGES[code] : null
 if (msg) {
   const err = document.getElementById('err')
   err.textContent = msg
