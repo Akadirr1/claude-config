@@ -618,7 +618,7 @@ button.ev-b:hover { background: var(--surface2); }
   .rb-name { font-size: 18px; }
   .stats { gap: 8px 16px; width: 100%; }
   .orch-body { min-height: 0; }
-  .const { max-height: 300px; }
+  .const { max-height: none; }
   .canvas { padding: 10px 8px 16px 4px; }
   .grid.v { column-gap: 26px; row-gap: 30px; }
   .grid.v .ph { writing-mode: vertical-rl; transform: rotate(180deg); align-self: stretch; justify-content: center; align-items: center; padding: 0; border-left: 1px dashed var(--line2); }

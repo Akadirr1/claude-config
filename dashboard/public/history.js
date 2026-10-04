@@ -4,14 +4,14 @@ import { S } from './state.js'
 
 let api = { openSession() {} }
 export const initHistory = a => (api = a)
-const st = { sort: 'receivedAt', dir: -1, q: '' }
+const st = { sort: 'startedAt', dir: -1, q: '' }
 
 const COLS = [
-  ['receivedAt', 'son etkinlik'], ['repo', 'repo'], ['title', 'hedef'], ['model', 'model'], ['dur', 'süre'],
+  ['startedAt', 'başladı'], ['repo', 'repo'], ['title', 'hedef'], ['model', 'model'], ['dur', 'süre'],
   ['agents', 'agent'], ['runs', 'run'], ['tokens', 'token'], ['graph', 'graf-önce'], ['cost', 'maliyet'],
 ]
 const val = (x, k) => ({
-  dur: x.receivedAt - x.firstAt,
+  dur: x.lastAt - x.startedAt,
   agents: x.totals.agents,
   runs: x.runs.length,
   tokens: totalTok(x.totals),
@@ -48,11 +48,11 @@ export function renderHistory() {
       h('thead', {}, h('tr', {}, COLS.map(([k, label]) => h('th', { scope: 'col', 'aria-sort': st.sort === k ? (st.dir > 0 ? 'ascending' : 'descending') : 'none' },
         h('button', { type: 'button', class: 'th-b', onclick: () => { st.dir = st.sort === k ? -st.dir : -1; st.sort = k; renderHistory() } }, label, st.sort === k ? (st.dir > 0 ? ' ↑' : ' ↓') : ''))))),
       h('tbody', {}, rows.map(x => h('tr', { tabindex: '0', class: 'clickable', onclick: () => api.openSession(x.id), onkeydown: e => e.key === 'Enter' && api.openSession(x.id) },
-        h('td', { class: 'num nowrap' }, x.live ? h('span', { class: 'live-dot', tip: 'şu an çalışıyor' }) : null, fmtDateTime(x.receivedAt)),
+        h('td', { class: 'num nowrap' }, x.live ? h('span', { class: 'live-dot', tip: 'şu an çalışıyor' }) : null, fmtDateTime(x.startedAt)),
         h('td', { class: 'mono', text: x.repo || '—' }),
         h('td', { class: 'goal' }, h('span', { class: 'goal-t', text: x.title || '—' }), mix(x)),
         h('td', { class: 'mono', text: model(x.model) }),
-        h('td', { class: 'num', text: fmtDur(x.receivedAt - x.firstAt) }),
+        h('td', { class: 'num', text: fmtDur(x.lastAt - x.startedAt) }),
         h('td', { class: 'num', text: String(x.totals.agents) }),
         h('td', { class: 'num', text: String(x.runs.length) }),
         h('td', { class: 'num', text: fmtTok(totalTok(x.totals)) }),

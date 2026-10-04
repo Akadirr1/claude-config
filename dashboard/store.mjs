@@ -158,9 +158,17 @@ export function rows(v) {
   return out
 }
 
+// session'ın kendi saatiyle başlangıcı ve son etkinliği (geçmiş/yeniden gönderimde sunucu saatinden doğru)
+function span(v) {
+  const starts = [num(v.main?.startedAt), ...v.subs.map(x => num(x.startedAt)), ...v.runs.map(r => num(r.startedAt))].filter(Boolean)
+  const ends = [num(v.sentAt), ...v.subs.map(x => num(x.endedAt)), ...v.runs.map(r => num(r.endedAt))].filter(Boolean)
+  const startedAt = starts.length ? Math.min(...starts) : v.firstAt
+  return { startedAt, lastAt: Math.max(startedAt, ...ends) }
+}
+
 export function summary(v) {
   return {
-    id: v.id, repo: v.repo, branch: v.branch, firstAt: v.firstAt, receivedAt: v.receivedAt,
+    id: v.id, repo: v.repo, branch: v.branch, firstAt: v.firstAt, receivedAt: v.receivedAt, ...span(v),
     title: str(v.main?.goal, 160), model: v.main?.model ?? null, status: v.main?.status ?? null,
     live: running(v), totals: { ...v.totals, byModel: undefined },
     runs: v.runs.map(r => ({ taskId: r.taskId, name: str(r.name, 120), status: r.status, startedAt: r.startedAt, endedAt: r.endedAt })),

@@ -152,11 +152,14 @@ function renderConstellation(v) {
     ...v.subs.map(x => ({ kind: 'sub', id: x.id, t: x.startedAt, a: x, parent: x.parent })),
     ...v.runs.map(r => ({ kind: 'run', id: r.taskId, t: r.startedAt, r, parent: r.parent })),
   ].sort((a, b) => a.t - b.t)
-  const hidden = Math.max(0, items.length - MAX_SAT)
-  const shown = items.slice(-MAX_SAT)
-  const W = 640, H = 340, cx = W / 2, cy = H / 2 + 6
+  // dar ekranda kare, yakın halkalar: etiketler telefonda okunur boyutta kalsın
+  const N = narrow.matches
+  const max = N ? 16 : MAX_SAT
+  const hidden = Math.max(0, items.length - max)
+  const shown = items.slice(-max)
+  const W = N ? 360 : 640, H = N ? 400 : 340, cx = W / 2, cy = H / 2 + 6
   const pos = new Map([['main', [cx, cy]]])
-  const rings = [{ n: 10, rx: 190, ry: 98 }, { n: 12, rx: 290, ry: 148 }]
+  const rings = N ? [{ n: 7, rx: 112, ry: 112 }, { n: 9, rx: 158, ry: 172 }] : [{ n: 10, rx: 190, ry: 98 }, { n: 12, rx: 290, ry: 148 }]
   let i = 0
   for (const ring of rings) {
     const list = shown.slice(i, i + ring.n)

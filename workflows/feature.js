@@ -100,6 +100,7 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
     `Rolün: developer.
 ${brief}
 ${feedback ? `Önceki turdan kapatman gerekenler:\n${feedback}\n` : ''}
+Değişecek yerleri ve etkilenen çağıranları önce grafla bul (graphify-out/ varsa \`graphify query\`, \`graphify path\`); codebase'i baştan okuma.
 Kriterleri karşılayan en küçük değişikliği yap; kapsam dışına çıkma. Kriterler için test ekle, mevcut testleri kırma.
 Bitince commit at. Son mesajında değişen dosyaları ve neyi neden yaptığını kısaca yaz.`,
     { label: `dev #${round}`, phase: 'Geliştirme', effort: 'high' },
@@ -117,7 +118,7 @@ Bitince commit at. Son mesajında değişen dosyaları ve neyi neden yaptığın
       `Rolün: QA. Kod değiştirme, commit atma.
 Değişiklik: ${diff}
 ${brief}
-Projenin test ve build komutlarını bul ve çalıştır (package.json scripts, Makefile vb.); çalıştırdıklarını commands alanına yaz.
+Projenin test ve build komutlarını bul ve çalıştır (package.json scripts, Makefile vb.; graphify-out/ varsa önce \`graphify query\` ile bul); çalıştırdıklarını commands alanına yaz.
 Her kriteri kanıtla kontrol et: test adı, komut çıktısı ya da dosya:satır. Kanıtlayamadığın kriter ok=false olur.
 pass yalnızca bütün kriterler ok ve testler geçiyorsa true.`,
       { label: `qa #${round}`, phase: 'QA', schema: QA, model: 'sonnet', effort: 'low' },

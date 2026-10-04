@@ -106,6 +106,7 @@ export function normSummary(x) {
   if (!str(o.id)) return null
   return {
     id: str(o.id), repo: str(o.repo), firstAt: num(o.firstAt) ?? 0, receivedAt: num(o.receivedAt) ?? 0,
+    startedAt: num(o.startedAt) ?? num(o.firstAt) ?? 0, lastAt: num(o.lastAt) ?? num(o.receivedAt) ?? 0,
     title: str(o.title), model: str(o.model), status: o.status == null ? null : mainKey(o.status), live: o.live === true,
     totals: normTotals(o.totals), subs: num(o.subs) ?? 0,
     runs: each(o.runs, r => (str(r?.taskId) ? { taskId: str(r.taskId), name: str(r.name), status: stKey(r.status), startedAt: num(r.startedAt) ?? 0, endedAt: num(r.endedAt) } : null)),

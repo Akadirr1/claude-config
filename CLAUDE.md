@@ -7,6 +7,7 @@
 ## Çalışma
 - Testler ponytail açısından gereksiz kod sayılmaz.
 - İstenenin dışında bir sorun ya da daha iyi bir yol görürsen uygulamadan önce söyle.
+- Ponytail gereksiz kodu ve aşırı mühendisliği atmak içindir; istenen tasarımı, özelliği ya da açıklamayı kısmak için değil.
 - Biten her parçadan sonra commit at ki session kesilirse iş kaybolmasın.
 
 ## Orkestrasyon (yalnız kullanıcı isterse)
@@ -29,5 +30,6 @@ Kullanıcı review istediğinde diff'e iki review'ı paralel subagent olarak ça
 - Diyagramı bana doğrudan gönder. Repoda tutmamı istersem `docs/diagrams/` altına JSON kaynağıyla birlikte commit'le.
 
 ## Graphify
+- Graphify bu sistemin ortak hafızası: hangi rolde olursan ol, kod tabanını baştan okumak yerine bağlamı önce graftan al (`graphify query "<soru>"`, `graphify path A B`, `graphify explain X`), sonra yalnız gereken dosyaları aç. Alt agent'a iş verirken de grafı kullanmasını söyle. Panel her agent'ın graf-önce oranını ve bunun token etkisini gösterir.
 - Repoda `graphify-out/` yoksa oturum başında `graphify update .` ile üret. Push'tan önce güncelle ve `graphify-out/`'u da commit'le.
 - `.gitignore`'da şunlar olsun: `graphify-out/????-??-??/`, `graphify-out/cache/`, `graphify-out/manifest.json`.
