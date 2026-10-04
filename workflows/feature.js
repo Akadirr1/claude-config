@@ -11,8 +11,17 @@ export const meta = {
 }
 
 // Kullanım: /feature <görev>
+//   metin içinde "level medium" / "rounds 1" geçerse onları da okur
 // ya da args olarak { task, level: 'medium' | 'high' | 'xhigh', rounds: 1-5 }
-const input = typeof args === 'string' ? { task: args } : args ?? {}
+function parse(a) {
+  if (a && typeof a === 'object') return a
+  let text = String(a ?? '')
+  const level = /\blevel[:=\s]+(medium|high|xhigh)\b/i.exec(text)?.[1]?.toLowerCase()
+  const rounds = /\brounds?[:=\s]+(\d)\b/i.exec(text)?.[1]
+  text = text.replace(/\blevel[:=\s]+(medium|high|xhigh)\b/gi, '').replace(/\brounds?[:=\s]+\d\b/gi, '')
+  return { task: text.replace(/^[\s,;:]+/, ''), level, rounds }
+}
+const input = parse(args)
 const task = String(input.task ?? '').trim()
 if (!task) return { status: 'görev yok', usage: '/feature <ne yapılacak>' }
 
@@ -70,7 +79,7 @@ Görev: ${task}
 2. Repoyu oku; graphify-out/ varsa önce \`graphify query\` kullan.
 3. Test edilebilir kabul kriterlerini, değişmesi gereken dosyaları, kapsam dışı kalanları ve riskleri çıkar.
 Belirsiz bir nokta varsa en makul varsayımı yap ve risks alanına yaz.`,
-  { label: 'ba', phase: 'Analiz', schema: SPEC },
+  { label: 'ba', phase: 'Analiz', schema: SPEC, effort: 'medium' },
 )
 if (!spec) return { status: 'BA sonuç vermedi', task }
 
@@ -93,7 +102,7 @@ ${brief}
 ${feedback ? `Önceki turdan kapatman gerekenler:\n${feedback}\n` : ''}
 Kriterleri karşılayan en küçük değişikliği yap; kapsam dışına çıkma. Kriterler için test ekle, mevcut testleri kırma.
 Bitince commit at. Son mesajında değişen dosyaları ve neyi neden yaptığını kısaca yaz.`,
-    { label: `dev #${round}`, phase: 'Geliştirme' },
+    { label: `dev #${round}`, phase: 'Geliştirme', effort: 'high' },
   )
   if (!dev) return { status: 'dev sonuç vermedi', round, spec, last }
 
@@ -111,7 +120,7 @@ ${brief}
 Projenin test ve build komutlarını bul ve çalıştır (package.json scripts, Makefile vb.); çalıştırdıklarını commands alanına yaz.
 Her kriteri kanıtla kontrol et: test adı, komut çıktısı ya da dosya:satır. Kanıtlayamadığın kriter ok=false olur.
 pass yalnızca bütün kriterler ok ve testler geçiyorsa true.`,
-      { label: `qa #${round}`, phase: 'QA', schema: QA },
+      { label: `qa #${round}`, phase: 'QA', schema: QA, model: 'sonnet', effort: 'low' },
     ),
   ])
 
