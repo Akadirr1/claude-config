@@ -1,7 +1,7 @@
 // wf-dashboard: wf-monitor mod'unun cloud session'lardan gönderdiği durumu canlı gösterir.
 // Bağımlılık yok. Ortam: WF_MONITOR_TOKEN (zorunlu, ≥16; /api/push), WF_VIEW_TOKEN (opsiyonel, ≥16; giriş formu,
 // yoksa WF_MONITOR_TOKEN), PORT (3000), WF_PUBLIC_DIR (./public), WF_DATA_DIR (./data; kalıcı defter, volume bağla),
-// WF_PRICING_FILE (opsiyonel; model fiyatlarını ezen JSON).
+// WF_PRICING_FILE (opsiyonel; model fiyatlarını ezen JSON), WF_PUBLIC_URL (opsiyonel; bildirimlerdeki panel bağlantısı).
 // Cloudflare (tercihen Tunnel) arkasında çalışmalı: hız sınırı CF-Connecting-IP'ye güvenir; origin doğrudan
 // erişilebilirse başlık sahtelenip sınır atlanabilir.
 import http from 'node:http'
@@ -10,10 +10,12 @@ import { join, extname } from 'node:path'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createStore, validate, csv as csvOf } from './store.mjs'
+import { createAutomations, spend } from './automations.mjs'
 import { PRICES } from './public/pricing.js'
 
 const MAX_PUSH = 256 * 1024
 const MAX_LOGIN = 4 * 1024
+const MAX_SETTINGS = 64 * 1024
 const SESSION_MS = 30 * 24 * 3600 * 1000
 const RATE_WINDOW = 15 * 60 * 1000
 const RATE_MAX = 5
@@ -89,6 +91,7 @@ function crossSite(req) {
 
 export function createServer({
   token, viewToken, publicDir = fileURLToPath(new URL('./public/', import.meta.url)), dataDir, prices = PRICES, now = Date.now,
+  publicUrl = '', fetchImpl, resolve,
 }) {
   for (const [name, v] of [['WF_MONITOR_TOKEN', token], ['WF_VIEW_TOKEN', viewToken]]) {
     if (name === 'WF_VIEW_TOKEN' && v === undefined) continue
@@ -100,6 +103,10 @@ export function createServer({
   const key = createHmac('sha256', view).update('wf-session-key').digest()
   const store = createStore({ dataDir, prices, log: m => console.warn(m) })
   const clients = new Set()
+  const auto = createAutomations({
+    dataDir, now, publicUrl, log: m => console.warn(m), ...(fetchImpl && { send: fetchImpl }), ...(resolve && { resolve }),
+    onFire: m => broadcast('auto', JSON.stringify({ title: m.title, body: m.body, rule: m.rule, session: m.session ?? null })),
+  })
   const failures = new Map() // ip -> { count, resetAt }
 
   const sign = issuedAt => createHmac('sha256', key).update('wf-session:' + issuedAt).digest('base64url')
@@ -197,7 +204,10 @@ export function createServer({
     } catch {
       return res.writeHead(400).end() // derin iç içe vb. (RangeError)
     }
-    if (out) broadcast('session', JSON.stringify({ serverNow: receivedAt, summary: out.summary, patch: out.patch }))
+    if (out) {
+      broadcast('session', JSON.stringify({ serverNow: receivedAt, summary: out.summary, patch: out.patch }))
+      auto.onIngest(out.prev, out.view, store.rows()).catch(e => console.warn(`otomasyon: ${e.message}`))
+    }
     res.writeHead(204).end()
   }
 
@@ -237,6 +247,10 @@ export function createServer({
       return v ? json(res, { serverNow: opts.now, view: v }) : res.writeHead(404).end()
     }
     if (path === '/api/stats') return json(res, store.stats(opts))
+    if (path === '/api/automations') {
+      const a = auto.get()
+      return json(res, { ...a, spend: spend(store.rows(), opts.now, a.settings.tz), publicUrl: Boolean(publicUrl) })
+    }
     if (path === '/api/export.csv') {
       const { from } = store.stats({ ...opts }).range
       const rs = store.rows().filter(r => (r.start || r.end) >= from && (!opts.repo || r.repo === opts.repo))
@@ -245,6 +259,27 @@ export function createServer({
         .end(csvOf(rs))
     }
     res.writeHead(404).end()
+  }
+
+  // Ayar yazma: oturum + aynı köken + JSON gövde (form ile çapraz site gönderimi olmasın)
+  async function settingsWrite(req, res, path) {
+    if (!authed(req)) return res.writeHead(401).end()
+    if (crossSite(req) || !/^application\/json\b/.test(req.headers['content-type'] || '')) return res.writeHead(403).end()
+    const raw = await readBody(req, MAX_SETTINGS)
+    if (raw === null) return res.writeHead(413).end()
+    let body
+    try {
+      body = JSON.parse(raw)
+    } catch {
+      return json(res, { error: 'JSON okunamadı' }, 400)
+    }
+    try {
+      if (path === '/api/automations') return json(res, { settings: auto.set(body) })
+      const r = await auto.test(body)
+      return json(res, r)
+    } catch (e) {
+      return json(res, { error: String(e.message).slice(0, 200) }, 400)
+    }
   }
 
   const server = http.createServer(async (req, res) => {
@@ -259,6 +294,7 @@ export function createServer({
       if (route === 'POST /logout') {
         return redirect(res, '/login', { 'Set-Cookie': ['wf_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0', CLEAR_OLD] })
       }
+      if (route === 'POST /api/automations' || route === 'POST /api/automations/test') return await settingsWrite(req, res, path)
       if (route === 'GET /api/me') return res.writeHead(authed(req) ? 204 : 401, { 'Cache-Control': 'no-store' }).end()
       if (route === 'GET /events') return events(req, res)
       if (req.method === 'GET' && path.startsWith('/api/')) return api(req, res, path)
@@ -284,6 +320,7 @@ export function createServer({
     setInterval(() => { for (const res of clients) write(res, ': ping\n\n') }, 25000),
     setInterval(sweep, 60000),
     setInterval(() => store.flush(), 2000),
+    setInterval(() => auto.tick(store.live(now(), 50), store.rows()).catch(e => console.warn(`otomasyon: ${e.message}`)), 60000),
   ]
   for (const t of timers) t.unref()
   server.on('close', () => {
@@ -291,6 +328,7 @@ export function createServer({
     store.flush()
   })
   server.store = store
+  server.auto = auto
   return server
 }
 
@@ -302,6 +340,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       viewToken: process.env.WF_VIEW_TOKEN || undefined,
       publicDir: process.env.WF_PUBLIC_DIR || undefined,
       dataDir: process.env.WF_DATA_DIR || fileURLToPath(new URL('./data/', import.meta.url)),
+      publicUrl: process.env.WF_PUBLIC_URL || '',
       prices: process.env.WF_PRICING_FILE ? { ...PRICES, ...JSON.parse(readFileSync(process.env.WF_PRICING_FILE, 'utf8')) } : PRICES,
     })
   } catch (e) {

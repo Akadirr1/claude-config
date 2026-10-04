@@ -335,12 +335,13 @@ export function createStore({ dataDir, prices = PRICES, log = () => {} } = {}) {
   }
 
   return {
-    // push'u birleştirir; { view, summary, patch } döner ya da bayatsa null
+    // push'u birleştirir; { view, prev, summary, patch } döner ya da bayatsa null
     ingest(body, receivedAt) {
       const id = body.session.id
       const prev = load(id)
       const epoch = String(num(body.epoch))
       if (prev && prev.lastEpoch === epoch && Number.isFinite(body.sentAt) && body.sentAt < prev.sentAt) return null
+      const before = prev ? view(prev, prices) : null
       const rec = merge(prev ? structuredClone(prev) : null, body, receivedAt)
       JSON.stringify(rec) // derin iç içe vb. burada patlasın, kayda girmeden
       touch(rec)
@@ -355,7 +356,7 @@ export function createStore({ dataDir, prices = PRICES, log = () => {} } = {}) {
         subs: v.subs.filter(x => pushed.has(x.id)),
         runs: v.runs.filter(x => pushedRuns.has(x.taskId)),
       }
-      return { view: v, summary: s, patch }
+      return { view: v, prev: before, summary: s, patch }
     },
     get: id => {
       const rec = load(id)
