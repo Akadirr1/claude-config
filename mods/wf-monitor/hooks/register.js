@@ -324,7 +324,7 @@ function trimLog() {
 // Sözleşmedeki orkestratör (maskelenmemiş)
 function viewMain() {
   return {
-    status: main.status, since: main.since, tool: main.tool, goal: main.goal, turns: main.turns, answer: main.answer,
+    startedAt: epoch, status: main.status, since: main.since, tool: main.tool, goal: main.goal, turns: main.turns, answer: main.answer,
     model: main.model, steps: main.steps.slice(), usage: usage.get('main') ?? null,
     tools: toolMix.get('main') ?? {}, graph: graphUse.get('main') ?? { g: 0, r: 0 },
   }

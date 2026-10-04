@@ -152,7 +152,7 @@ export function rows(v) {
       in: t.in, out: t.out, cr: t.cr, cw: t.cw, n: t.n, cost: t.cost, g: num(a.graph?.g), r: num(a.graph?.r), ...extra,
     })
   }
-  if (v.main) row('main', v.main, { start: v.firstAt, end: v.receivedAt, status: v.main.status ?? '' })
+  if (v.main) row('main', v.main, { start: num(v.main.startedAt) || v.firstAt, end: v.receivedAt, status: v.main.status ?? '' })
   for (const s of v.subs) row('sub', s)
   for (const r of v.runs) for (const a of r.agents) row('wf', a, { run: str(r.name, 120), runId: r.taskId })
   return out
