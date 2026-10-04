@@ -1,5 +1,8 @@
-// wf-monitor: dynamic workflow run'larını izler.
+// wf-monitor: session'daki bütün agentic işi izler — orkestratör (ana döngü), Agent aracıyla doğan
+// alt agent'lar ve dynamic workflow run'ları — ve her birinin model bazında token kullanımını sayar.
 // Veri kaynakları:
+//   - turn.step (her model isteği, agentId ile): token kullanımı ve model; turn.start/turn.complete: orkestratör turu
+//   - agent.spawn: alt agent'ın doğumu (açıklama, tip, model, prompt başı, ebeveyn)
 //   - Workflow tool sonucu: taskId, workflowName, transcriptDir, scriptPath
 //   - transcriptDir/journal.jsonl: launched / started / result / failed satırları (sıra → dalga, result → biten)
 //   - transcriptDir/agent-<id>.meta.json: label (description), phase (workflowPhase), agentType, stoppedByUser
@@ -9,7 +12,7 @@
 // Çıktılar:
 //   - Terminal / Desktop: yan pane
 //   - Her yerde (cloud dahil): /wf metin özeti
-//   - WF_MONITOR_URL + WF_MONITOR_TOKEN tanımlıysa: durumu dashboard'a POST eder (sözleşme v2)
+//   - WF_MONITOR_URL + WF_MONITOR_TOKEN tanımlıysa: durumu dashboard'a POST eder (sözleşme v3, yalnız değişen varlıklar)
 
 const PANE_ID = 'wf-monitor'
 const POLL_MS = 2000
@@ -17,19 +20,29 @@ const HEARTBEAT_MS = 15000
 const MAX_STEPS = 10
 const MAX_BYTES = 240 * 1024
 const MAX_RUNS = 10 // payload'da ve bellekte tutulan bitmiş run sayısı
+const MAX_SUBS = 200 // bellekte tutulan bitmiş alt agent sayısı
+const MAX_SUBS_PUSH = 40 // bir push'taki alt agent sayısı (kalanlar sonraki push'ta)
+const MAX_MAIN_STEPS = 40
 const MAX_UNKNOWN = 50 // run'ı bilinmeyen agent'lar için stepLog girdisi
 const RECHECK_MS = 60000 // tahminle biten run'ın journal'ı bu kadar daha izlenir
 const STATUS = { completed: 'done', failed: 'failed', killed: 'stopped', done: 'done', stopped: 'stopped' }
 const TR = { running: 'çalışıyor', done: 'bitti', failed: 'hata', stopped: 'durduruldu' }
 
 const runs = new Map() // taskId -> run
+const subs = new Map() // agentId -> Agent aracıyla doğan alt agent
 const stepLog = new Map() // agentId -> { first, list: {t, text}[] }
+const usage = new Map() // 'main' | agentId -> { byModel: { model: { in, out, cr, cw, n } } }
+const toolMix = new Map() // 'main' | agentId -> { araç: sayı }
+const graphUse = new Map() // 'main' | agentId -> { g: graphify çağrısı, r: Read/Grep/Glob }
+const sent = new Map() // varlık anahtarı -> sunucuya teslim edilen imza
+const main = { status: 'idle', since: 0, tool: null, goal: '', turns: 0, answer: '', model: null, steps: [] }
+let epoch = 0 // süreç kimliği: mod yeniden yüklenince sunucu eski sayaçların üstüne yazmasın, ekler
+let pushing = false
 let host = null // session.start'ta kurulan, mods API çağrılarını saran fonksiyonlar
 let drawing = false
 let paneOpen = false
 let poller = null // $.clock.every tutamacı ({ cancel })
 let nowMs = 0
-let lastKey = ''
 let lastPushAt = 0
 let failStreak = 0 // ardışık başarısız push; geri çekilme için
 let nextTryAt = 0
@@ -106,14 +119,6 @@ export function summarize(r) {
 
 const roundOf = label => Number(/#(\d+)/.exec(label)?.[1] ?? 1)
 
-function roleOf(label, agentType) {
-  if (/^ba\b/i.test(label)) return 'ba'
-  if (/^dev/i.test(label)) return 'dev'
-  if (/review/i.test(label) || /^reviewer-/.test(agentType ?? '')) return 'review'
-  if (/^qa/i.test(label)) return 'qa'
-  return 'other'
-}
-
 // k. dalgadaki her agent'a (k-1). dalgadaki her agent'tan kenar
 export function edgesOf(agents, phases) {
   const edges = []
@@ -128,37 +133,70 @@ export function edgesOf(agents, phases) {
   return edges
 }
 
-// Gövde 240 KB'ı geçerse: en eski teslim edilmiş bitmiş run'ları at, sonra adım/sonuçları kısalt,
-// sonra en eskileri at (son durumu teslim edilmemiş olanlar = keep, en son)
-export function fit(body, keep = new Set()) {
+// Gövde 240 KB'ı geçerse kısalt: önce adımlar ve sonuçlar, sonra çalışmayan varlıklar atılır.
+// Atılan varlık teslim edilmiş sayılmaz, sonraki push'ta yeniden denenir.
+export function fit(body) {
   const enc = new TextEncoder()
   let s = ''
   const over = () => enc.encode((s = JSON.stringify(body))).length > MAX_BYTES
-  const drop = pred => {
-    while (over() && body.runs.length > 1) {
-      const i = body.runs.findIndex(pred)
-      if (i < 0) break
-      body.runs.splice(i, 1)
-    }
-  }
-  drop(r => r.status !== 'running' && !keep.has(r.taskId))
+  if (!over()) return s
+  const agents = () => [...body.subs, ...body.runs.flatMap(r => r.agents)]
   for (const n of [3, 0]) {
+    if (body.main) body.main.steps = body.main.steps.slice(-Math.max(n, 5))
+    for (const a of agents()) {
+      a.steps = n ? a.steps.slice(-n) : []
+      if (!n) a.result = null
+    }
     if (!over()) return s
-    for (const r of body.runs)
-      for (const a of r.agents) {
-        a.steps = n ? a.steps.slice(-n) : []
-        if (!n) a.result = null
-      }
   }
-  drop(r => !keep.has(r.taskId))
-  drop(() => true)
+  const drop = list => {
+    for (let i = list.length - 1; i >= 0 && over(); i--) if (list[i].status !== 'running') list.splice(i, 1)
+  }
+  drop(body.subs)
+  drop(body.runs)
+  while (over() && body.subs.length) body.subs.shift()
+  while (over() && body.runs.length > 1) body.runs.shift()
   const r = body.runs[0]
-  while (over() && r.agents.length) {
+  while (over() && r?.agents.length) {
     r.agents = r.agents.slice(Math.ceil(r.agents.length / 2))
     const ids = new Set(r.agents.map(a => a.id))
     r.edges = r.edges.filter(e => ids.has(e.from) && ids.has(e.to))
   }
   return s
+}
+
+// turn.step sonucundaki kullanım: { model, input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens }
+export function addUsage(map, key, model, u) {
+  if (!u) return
+  const m = clip(String(u.model ?? model ?? '?'), 80)
+  const by = (map.get(key) ?? map.set(key, { byModel: {} }).get(key)).byModel
+  const x = (by[m] ??= { in: 0, out: 0, cr: 0, cw: 0, n: 0 })
+  x.in += Number(u.input_tokens) || 0
+  x.out += Number(u.output_tokens) || 0
+  x.cr += Number(u.cache_read_input_tokens) || 0
+  x.cw += Number(u.cache_creation_input_tokens) || 0
+  x.n++
+}
+
+const GRAPHIFY = /\bgraphify\b/i
+const READS = new Set(['Read', 'Grep', 'Glob', 'NotebookRead'])
+// graphify kullanımı: Bash'te graphify komutu ya da graphify skill'i; okuma: dosya tarayan araçlar
+export function graphHit(e) {
+  if (e.tool === 'Bash' && GRAPHIFY.test(String(e.command ?? ''))) return 'g'
+  if (e.tool === 'Skill' && GRAPHIFY.test(String(e.skill ?? ''))) return 'g'
+  if (/graphify/i.test(String(e.tool ?? ''))) return 'g'
+  return READS.has(e.tool) ? 'r' : null
+}
+
+function countTool(key, e) {
+  const mix = toolMix.get(key) ?? toolMix.set(key, {}).get(key)
+  const name = clip(String(e.tool ?? '?'), 60)
+  if (Object.keys(mix).length < 40 || mix[name]) mix[name] = (mix[name] ?? 0) + 1
+  const hit = graphHit(e)
+  if (hit) {
+    const g = graphUse.get(key) ?? graphUse.set(key, { g: 0, r: 0 }).get(key)
+    g[hit]++
+  }
 }
 
 function describe(e) {
@@ -247,26 +285,137 @@ function runOf(agentId) {
 
 const rechecking = r => !r.sure && r.status !== 'running' && r.recheckUntil > nowMs
 
-// sürmesi gereken iş: çalışan run, teslim edilmemiş son durum, tahmini bitişin yeniden kontrolü
-function needPoll() {
-  for (const r of runs.values()) if (r.status === 'running' || (host?.post && !r.delivered) || rechecking(r)) return true
+// süren iş: orkestratör çalışıyor, çalışan alt agent ya da run
+function active() {
+  if (main.status !== 'idle') return true
+  for (const sub of subs.values()) if (sub.status === 'running') return true
+  for (const r of runs.values()) if (r.status === 'running' || rechecking(r)) return true
   return false
 }
 
-// en yeni MAX_RUNS dışındaki bitmiş ve teslim edilmiş run'ları ve agent adımlarını unut
+// en yeni MAX_RUNS / MAX_SUBS dışındaki bitmiş ve teslim edilmiş varlıkları ve sayaçlarını unut
 function prune() {
-  const old = [...runs.values()].filter(r => r.status !== 'running' && (r.delivered || !host?.post) && !rechecking(r))
-  for (const r of old.slice(0, -MAX_RUNS)) {
+  const forget = id => {
+    stepLog.delete(id)
+    usage.delete(id)
+    toolMix.delete(id)
+    graphUse.delete(id)
+  }
+  const doneRuns = [...runs.values()].filter(r => r.status !== 'running' && (delivered('r:' + r.taskId) || !host?.post) && !rechecking(r))
+  for (const r of doneRuns.slice(0, -MAX_RUNS)) {
     runs.delete(r.taskId)
-    for (const id of r.byId.keys()) stepLog.delete(id)
+    sent.delete('r:' + r.taskId)
+    for (const id of r.byId.keys()) forget(id)
+  }
+  const doneSubs = [...subs.values()].filter(x => x.status !== 'running' && (delivered('s:' + x.id) || !host?.post))
+  for (const x of doneSubs.slice(0, -MAX_SUBS)) {
+    subs.delete(x.id)
+    sent.delete('s:' + x.id)
+    forget(x.id)
   }
 }
 
-// run'ı bilinmeyen agent'ların adımlarından yalnız en yeni MAX_UNKNOWN tanesi
+// run'ı ya da alt agent'ı bilinmeyen loop'ların adımlarından yalnız en yeni MAX_UNKNOWN tanesi
 function trimLog() {
-  const unknown = [...stepLog.keys()].filter(id => !runOf(id))
+  const unknown = [...stepLog.keys()].filter(id => !runOf(id) && !subs.has(id))
   for (const id of unknown.slice(0, -MAX_UNKNOWN)) stepLog.delete(id)
 }
+
+// Sözleşmedeki orkestratör (maskelenmemiş)
+function viewMain() {
+  return {
+    status: main.status, since: main.since, tool: main.tool, goal: main.goal, turns: main.turns, answer: main.answer,
+    model: main.model, steps: main.steps.slice(), usage: usage.get('main') ?? null,
+    tools: toolMix.get('main') ?? {}, graph: graphUse.get('main') ?? { g: 0, r: 0 },
+  }
+}
+
+// Sözleşmedeki alt agent (maskelenmemiş)
+function viewSub(x) {
+  const log = stepLog.get(x.id)
+  return {
+    id: x.id, label: x.label, agentType: x.agentType, model: x.model, hint: x.hint, parent: x.parent,
+    status: x.status, startedAt: x.startedAt, endedAt: x.endedAt, background: x.background,
+    steps: log ? log.list.slice() : [], result: x.result,
+    usage: usage.get(x.id) ?? null, tools: toolMix.get(x.id) ?? {}, graph: graphUse.get(x.id) ?? { g: 0, r: 0 },
+  }
+}
+
+// workflow ve alt agent dışındaki loop'lar (sıkıştırma, hafıza çatalları): toplam kullanım
+function miscUsage() {
+  const out = { byModel: {} }
+  for (const [key, u] of usage) {
+    if (key === 'main' || subs.has(key) || runOf(key)) continue
+    for (const [m, x] of Object.entries(u.byModel)) {
+      const y = (out.byModel[m] ??= { in: 0, out: 0, cr: 0, cw: 0, n: 0 })
+      for (const k of ['in', 'out', 'cr', 'cw', 'n']) y[k] += x[k]
+    }
+  }
+  return out
+}
+
+const sigs = new Map() // varlık anahtarı -> son hesaplanan imza (gönderilen hali)
+const delivered = key => sigs.has(key) && sent.get(key) === sigs.get(key)
+
+// Teslim edilmemiş varlıklar: çalışanlar önce, sonra en yeniler; sınırın ötesi sonraki push'a kalır
+function pending(list, cap) {
+  const out = list.filter(e => sent.get(e.key) !== e.sig)
+  out.sort((a, b) => (b.v.status === 'running') - (a.v.status === 'running') || (b.v.startedAt ?? 0) - (a.v.startedAt ?? 0))
+  return out.slice(0, cap)
+}
+
+async function push() {
+  if (!host || !host.post || pushing || nowMs < nextTryAt) return
+  const wf = new Set()
+  for (const r of runs.values()) for (const id of r.byId.keys()) wf.add(id)
+  const ent = (key, v) => {
+    const m = maskDeep(v)
+    const sig = JSON.stringify(m)
+    sigs.set(key, sig)
+    return { key, v: m, sig }
+  }
+  const runEnts = [...runs.values()].map(r => ent('r:' + r.taskId, view(r)))
+  const subEnts = [...subs.values()].filter(x => !wf.has(x.id)).map(x => ent('s:' + x.id, viewSub(x)))
+  const mainEnt = ent('main', viewMain())
+  const runP = pending(runEnts, MAX_RUNS)
+  const subP = pending(subEnts, MAX_SUBS_PUSH)
+  const changed = runP.length || subP.length || sent.get('main') !== mainEnt.sig
+  // değişiklik yoksa yalnız iş sürerken heartbeat (panel "son güncelleme"yi taze tutar)
+  if (!changed && (!active() || nowMs - lastPushAt < HEARTBEAT_MS)) return
+  const body = {
+    v: 3, session: host.session, epoch, sentAt: nowMs,
+    main: mainEnt.v, misc: { usage: maskDeep(miscUsage()) },
+    subs: subP.map(e => e.v), runs: runP.map(e => e.v),
+  }
+  const s = fit(body)
+  const keys = new Map([...runP, ...subP, mainEnt].map(e => [e.key, e.sig]))
+  const kept = ['main', ...body.runs.map(r => 'r:' + r.taskId), ...body.subs.map(x => 's:' + x.id)]
+  pushing = true
+  lastPushAt = nowMs
+  const ok = await host.post(s).then(res => res?.ok === true, () => false)
+  pushing = false
+  if (!ok) {
+    failStreak++ // aynı durum yeniden denenir; 2 sn'den 60 sn'ye üstel geri çekilerek
+    nextTryAt = nowMs + Math.min(60_000, 1000 * 2 ** failStreak)
+    return
+  }
+  failStreak = 0
+  nextTryAt = 0
+  for (const k of kept) if (keys.has(k)) sent.set(k, keys.get(k))
+}
+
+const pushSoon = () => void push().catch(() => {})
+
+// teslim edilmemiş bir şey kaldı mı (poller açık kalsın)
+function undelivered() {
+  if (!host?.post) return false
+  if (sent.get('main') !== sigs.get('main')) return true
+  for (const r of runs.values()) if (!delivered('r:' + r.taskId)) return true
+  for (const x of subs.values()) if (!delivered('s:' + x.id)) return true
+  return false
+}
+
+const needPoll = () => active() || undelivered()
 
 function redraw() {
   if (host && drawing && paneOpen) host.invalidate()
@@ -283,17 +432,21 @@ function view(r) {
       label,
       phase: a.phase,
       round: roundOf(label),
-      role: roleOf(label, a.agentType),
+      agentType: a.agentType,
       status,
       startedAt: Math.min(a.seenAt, log?.first ?? Infinity),
       endedAt: a.endedAt ?? (status === 'running' ? null : r.endedAt),
       wave: a.wave,
       steps: log ? log.list.slice() : [],
       result: a.result,
+      usage: usage.get(a.id) ?? null,
+      tools: toolMix.get(a.id) ?? {},
+      graph: graphUse.get(a.id) ?? { g: 0, r: 0 },
     }
   })
   return {
     taskId: r.taskId,
+    parent: r.parent,
     name: r.name,
     status: r.status,
     startedAt: r.startedAt,
@@ -304,42 +457,6 @@ function view(r) {
   }
 }
 
-// gönderilecek en fazla MAX_RUNS run: çalışanlar ve son durumu teslim edilmemişler önce, kalan yere en yeniler
-function pick() {
-  const all = [...runs.values()]
-  const need = r => r.status === 'running' || !r.delivered
-  let room = MAX_RUNS - all.filter(need).length
-  const out = []
-  for (const r of all.reverse()) if (need(r) || room-- > 0) out.unshift(r)
-  return out.slice(-MAX_RUNS)
-}
-
-async function push() {
-  if (!host || !host.post || runs.size === 0 || nowMs < nextTryAt) return
-  const sent = pick()
-  const list = maskDeep(sent.map(view))
-  const key = JSON.stringify(list)
-  if (key === lastKey && nowMs - lastPushAt < HEARTBEAT_MS) return
-  lastKey = key
-  lastPushAt = nowMs
-  const body = { v: 2, session: host.session, sentAt: nowMs, runs: list }
-  const s = fit(body, new Set(sent.filter(r => r.status !== 'running' && !r.delivered).map(r => r.taskId)))
-  const ok = await host.post(s).then(res => res?.ok === true, () => false)
-  if (!ok) {
-    lastKey = '' // aynı durum yeniden denenir; 2 sn'den 60 sn'ye üstel geri çekilerek
-    failStreak++
-    nextTryAt = nowMs + Math.min(60_000, 1000 * 2 ** failStreak)
-    return
-  }
-  failStreak = 0
-  nextTryAt = 0
-  for (const v of body.runs) {
-    const r = runs.get(v.taskId)
-    if (r && v.status !== 'running' && r.status === v.status) r.delivered = true
-  }
-}
-
-const pushSoon = () => void push().catch(() => {})
 
 function counts(v) {
   const n = st => v.agents.filter(a => a.status === st).length
@@ -350,9 +467,21 @@ function counts(v) {
 const lastDone = v => [...v.agents].reverse().find(a => a.status === 'done')?.label
 const lastStep = a => a.steps[a.steps.length - 1]?.text ?? '…'
 
+const STATE = { idle: 'boşta', thinking: 'düşünüyor', tool: 'araç kullanıyor' }
+const tokens = key => Object.values(usage.get(key)?.byModel ?? {}).reduce((s, x) => s + x.in + x.out + x.cr + x.cw, 0)
+const fmtTok = n => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n))
+
 function summaryText() {
-  if (runs.size === 0) return 'Bu session\'da workflow çalışmadı.'
   const lines = []
+  if (main.turns || usage.has('main'))
+    lines.push(`Şef · ${STATE[main.status] ?? main.status} · tur ${main.turns} · ${fmtTok(tokens('main'))} token`)
+  if (subs.size) {
+    const live = [...subs.values()].filter(x => x.status === 'running')
+    const sum = [...subs.keys()].reduce((n, id) => n + tokens(id), 0)
+    lines.push(`alt agent ${subs.size} · çalışan ${live.length} · ${fmtTok(sum)} token`)
+    for (const x of live) lines.push(`  ${x.label}  ${stepLog.get(x.id)?.list.at(-1)?.text ?? '…'}`)
+  }
+  if (runs.size === 0) lines.push('Bu session\'da workflow çalışmadı.')
   for (const r of runs.values()) {
     const v = view(r)
     const c = counts(v)
@@ -428,7 +557,6 @@ async function finish(run, status, sure) {
   run.endSize = run.journalSize
   run.recheckUntil = sure ? 0 : nowMs + RECHECK_MS
   if (was !== status) {
-    run.delivered = false
     const done = run.agents.filter(a => a.jstatus === 'done').length
     const msg = `workflow ${run.name}: ${TR[status]} (${since(run.endedAt - run.startedAt)}, ${done} agent sonucu)`
     if (drawing) host.toast(msg)
@@ -444,12 +572,21 @@ function reopen(run) {
   if (!host || run.sure || run.status === 'running') return
   run.status = 'running'
   run.endedAt = null
-  run.delivered = false
   run.recheckUntil = 0
   host.log(`workflow ${run.name}: ${TR.running} (tahmini bitiş geri alındı)`)
   startPolling()
   redraw()
   pushSoon()
+}
+
+const SUB_END = { answer: 'done', aborted: 'stopped', error: 'failed', refusal: 'failed' }
+
+function endSub(x, status, t, answer) {
+  if (!x || x.status === status) return
+  x.status = status
+  x.endedAt = status === 'running' ? null : t
+  if (answer != null) x.result = summarize(String(answer))
+  touch()
 }
 
 async function poll() {
@@ -470,6 +607,9 @@ async function poll() {
     poller = null
   }
 }
+
+// orkestratör ya da agent'larda hareket: poller açık değilse aç (push'lar poll'da, en fazla 2 sn'de bir)
+const touch = () => startPolling()
 
 function startPolling() {
   if (host && !poller) poller = host.every(POLL_MS, () => void poll().catch(() => {}))
@@ -523,6 +663,7 @@ export function register(on) {
           : null,
     }
     nowMs = await $.clock.now()
+    epoch = nowMs
     const surfaces = await $.session.surfaces()
     drawing = surfaces.some(s => s === 'terminal' || s === 'desktop')
     await $.command
@@ -546,6 +687,7 @@ export function register(on) {
       runs.set(r.taskId, {
         taskId: r.taskId,
         name: clip(r.workflowName ?? e.name ?? 'workflow', 120),
+        parent: e.agentId ?? 'main',
         transcriptDir: r.transcriptDir,
         phases,
         status: 'running',
@@ -555,7 +697,6 @@ export function register(on) {
         agents: [],
         byId: new Map(),
         journalSize: -1,
-        delivered: false,
         recheckUntil: 0,
       })
       nowMs = startedAt
@@ -574,30 +715,111 @@ export function register(on) {
     return res
   })
 
-  // Workflow agent'larının son adımları; tahminle bitmiş run'ın agent'ı çalışıyorsa run sürüyordur
+  // Her araç çağrısı: orkestratörün ya da agent'ın son adımları, araç karışımı, graphify kullanımı.
+  // Tahminle bitmiş run'ın agent'ı çalışıyorsa run sürüyordur.
   on('tool.call', async ($, e, next) => {
-    const run = e.agentId ? runOf(e.agentId) : undefined
-    if (e.agentId && (run || hasRunning())) {
-      const t = await $.clock.now()
+    const t = await $.clock.now()
+    const text = short(mask(String(describe(e)).slice(0, 2000)), 160)
+    if (!e.agentId) {
+      main.steps.push({ t, text, tool: clip(String(e.tool ?? ''), 60) })
+      if (main.steps.length > MAX_MAIN_STEPS) main.steps.shift()
+      countTool('main', e)
+      Object.assign(main, { status: 'tool', tool: clip(String(e.tool ?? ''), 60), since: t })
+      touch()
+      try {
+        return await next(e)
+      } finally {
+        if (main.status === 'tool') Object.assign(main, { status: 'thinking', tool: null, since: await $.clock.now() })
+      }
+    }
+    const run = runOf(e.agentId)
+    const sub = subs.get(e.agentId)
+    if (run || sub || hasRunning()) {
       const log = stepLog.get(e.agentId) ?? { first: t, list: [] }
-      log.list.push({ t, text: short(mask(String(describe(e)).slice(0, 2000)), 160) })
+      log.list.push({ t, text })
       if (log.list.length > MAX_STEPS) log.list.shift()
       stepLog.set(e.agentId, log)
-      if (!run) trimLog()
+      countTool(e.agentId, e)
+      if (!run && !sub) trimLog()
+      touch()
     }
     if (run) reopen(run)
+    if (sub && sub.status !== 'running') endSub(sub, 'running', t)
     return next(e)
+  })
+
+  // Orkestratörün turu başlar: hedef kullanıcının metni (bildirimle başlayan turlar hedefi değiştirmez)
+  on('turn.start', async ($, e, next) => {
+    const t = await $.clock.now()
+    main.turns++
+    const text = String(e.text ?? '').trim()
+    if (text && !/^<(task-notification|system-reminder)/.test(text)) main.goal = cut(text, 300)
+    Object.assign(main, { status: 'thinking', tool: null, since: t })
+    touch()
+    return next(e)
+  })
+
+  // Her model isteği: token kullanımı agent'ına (ana döngü 'main') model bazında yazılır
+  on('turn.step', async function* ($, e, next) {
+    const key = e.agentId ?? 'main'
+    if (key === 'main') {
+      main.model = clip(String(e.model ?? ''), 80) || main.model
+      if (main.status === 'idle') Object.assign(main, { status: 'thinking', since: await $.clock.now() })
+    } else {
+      const sub = subs.get(key)
+      if (sub && sub.status !== 'running') endSub(sub, 'running', await $.clock.now())
+    }
+    const r = yield* next(e)
+    try {
+      addUsage(usage, key, e.model, r?.usage)
+      touch()
+    } catch {}
+    return r
+  })
+
+  // Tur biter: ana döngü boşa düşer; alt agent'ın tek turu bittiyse agent biter
+  on('turn.complete', async ($, e, next) => {
+    const res = await next(e)
+    const t = await $.clock.now()
+    if (!e.agentId) {
+      Object.assign(main, { status: 'idle', tool: null, since: t, answer: cut(e.answer ?? '', 600) })
+      touch()
+    } else endSub(subs.get(e.agentId), SUB_END[e.reason] ?? 'done', t, e.answer)
+    return res
+  })
+
+  // Agent aracıyla doğan alt agent: açıklaması, tipi, modeli, prompt'un başı, ebeveyni
+  on('agent.spawn', async ($, e, next) => {
+    const res = await next(e)
+    if (res?.agentId && !res.deny) {
+      subs.set(res.agentId, {
+        id: res.agentId,
+        label: cut(e.description || res.agentId.slice(0, 8), 120),
+        agentType: clip(String(e.subagentType ?? ''), 80),
+        model: clip(String(res.model ?? e.model ?? ''), 80),
+        hint: cut(e.prompt, 300),
+        parent: e.agentId ?? 'main',
+        status: 'running',
+        startedAt: await $.clock.now(),
+        endedAt: null,
+        result: null,
+      })
+      touch()
+    }
+    return res
   })
 
   // Bitiş bildirimi: <task-notification><task-id>ID</task-id>...<status>completed|failed|killed</status>
   on('prompt.submit', async ($, e, next) => {
     const res = await next(e)
-    if (e.origin?.kind === 'task-notification' && runs.size) {
+    if (e.origin?.kind === 'task-notification' && (runs.size || subs.size)) {
       // blok başına yalnız ilk <task-id> ve ilk <status>: özet metnine gömülü sahte etiketler sayılmaz
       for (const [, block] of String(e.text ?? '').matchAll(/<task-notification>([\s\S]*?)<\/task-notification>/g)) {
-        const run = runs.get(/<task-id>\s*([^<]+?)\s*<\/task-id>/.exec(block)?.[1])
+        const id = /<task-id>\s*([^<]+?)\s*<\/task-id>/.exec(block)?.[1]
         const status = STATUS[/<status>\s*([^<]+?)\s*<\/status>/.exec(block)?.[1]]
+        const run = runs.get(id)
         if (run && status) await finish(run, status, true)
+        else if (status && subs.has(id)) endSub(subs.get(id), status, await $.clock.now())
       }
     }
     return res
@@ -609,6 +831,8 @@ export function register(on) {
   })
 
   on('classic.SubagentStop', async ($, e, next) => {
+    const sub = subs.get(e.agent_id)
+    if (sub?.status === 'running') endSub(sub, 'done', await $.clock.now(), e.last_assistant_message)
     await reconcile(e.background_tasks, e.agent_id)
     return next(e)
   })
@@ -638,6 +862,14 @@ export function register(on) {
     const { Box, Text } = $.ui.resolve(e)
     const width = Math.max(20, (e.props.bodyColumns ?? 60) - 2)
     const blocks = []
+    if (main.turns || usage.has('main')) {
+      const color = main.status === 'idle' ? 'gray' : 'yellow'
+      const rows = [h(Text, { bold: true, color }, short(`Şef · ${STATE[main.status] ?? main.status} · tur ${main.turns} · ${fmtTok(tokens('main'))} token`, width))]
+      if (main.goal) rows.push(h(Text, { dimColor: true }, short(main.goal, width)))
+      for (const x of [...subs.values()].filter(x => x.status === 'running'))
+        rows.push(h(Text, null, short(`  ↳ ${x.label}  ${stepLog.get(x.id)?.list.at(-1)?.text ?? '…'}`, width)))
+      blocks.push(h(Box, { key: 'main', flexDirection: 'column' }, ...rows))
+    }
     if (runs.size === 0) blocks.push(h(Text, { dimColor: true }, 'Henüz workflow yok.'))
     for (const r of [...runs.values()].reverse()) {
       const v = view(r)

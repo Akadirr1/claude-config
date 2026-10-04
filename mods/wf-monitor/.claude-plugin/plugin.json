@@ -1,7 +1,7 @@
 {
   "name": "wf-monitor",
-  "version": "0.2.0",
-  "description": "Dynamic workflow run'larını izler: yan pane'de aşamalar, başlayan/aktif/biten agent sayısı ve aktif agent'ların son adımı; /wf ile metin özeti (cloud session'da da çalışır); WF_MONITOR_URL/TOKEN varsa dashboard'a v2 payload (agent'lar, dalgalar, kenarlar, sonuç özetleri, maskelenmiş) gönderir.",
+  "version": "0.3.0",
+  "description": "Session'daki bütün agentic işi izler: orkestratör, alt agent'lar ve workflow run'ları; model bazında token, araç karışımı ve graphify kullanımı. Yan pane, /wf özeti ve dashboard'a canlı push (v3).",
   "author": {
     "name": "Akadirr1"
   }
