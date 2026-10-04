@@ -188,7 +188,9 @@ function walk(run, text) {
   let wave = -1
   // Yeni dalga ancak mevcut dalganın hepsi bitince başlar: parallel() eşzamanlılık sınırında
   // kuyrukta bekleyen agent, kardeşlerinden biri bitince başlasa da aynı dalgadadır.
-  const waveOpen = () => order.some(x => x.wave === wave && x.jstatus === 'running')
+  // Sonucu hiç gelmeyecek agent (resume öncesi yarım kalan, kullanıcının durdurduğu) dalgayı açık tutmaz.
+  const waveOpen = () => order.some(x => x.wave === wave && x.jstatus === 'running' && !x.stoppedByUser)
+  let closed = false
   const start = id => {
     let a = run.byId.get(id)
     if (!a) {
@@ -196,7 +198,10 @@ function walk(run, text) {
       run.byId.set(id, a)
     }
     if (!order.includes(a)) {
-      if (wave < 0 || !waveOpen()) wave++
+      if (wave < 0 || closed || !waveOpen()) {
+        wave++
+        closed = false
+      }
       a.wave = wave
       a.jstatus = 'running'
       order.push(a)
@@ -210,6 +215,7 @@ function walk(run, text) {
     } catch {
       continue
     }
+    if (row?.type === 'restoring' || row?.type === 'restored') closed = true
     if (!row?.agentId) continue
     if (row.type === 'started') start(row.agentId)
     else if (row.type === 'result' || row.type === 'failed') {

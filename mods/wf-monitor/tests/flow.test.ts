@@ -264,6 +264,24 @@ describe('wf-monitor', () => {
     expect(run.edges.filter(e => e.to === 'dev00002').length).toBe(3)
   })
 
+  test('resume ile yarım kalan agent dalgayı açık tutmaz', async ($, on) => {
+    const rows = [
+      { type: 'launched' },
+      { type: 'started', key: 'k1', agentId: 'ba000001' },
+      { type: 'restoring' },
+      { type: 'restored' },
+      { type: 'started', key: 'k2', agentId: 'dev00001' },
+      { type: 'result', key: 'k2', agentId: 'dev00001', result: 'x' },
+      { type: 'started', key: 'k3', agentId: 'cr000001' },
+    ]
+    const { clock, posts } = world(on, [], POST_ENV, rows)
+    await launch($)
+    await clock.advance(2100)
+    expect(lastPost(posts).body.runs[0].agents.map(a => [a.label, a.wave])).toEqual([
+      ['ba', 0], ['dev #1', 1], ['code-review #1', 2],
+    ])
+  })
+
   test('payload\'daki metinler maskelenir', async ($, on) => {
     const secretResult = { type: 'result', key: 'k6', agentId: 'dev00002', result: 'anahtar sk-abcdefghijklmnop1234 ve password=hunter2' }
     const { clock, posts } = world(on, [], POST_ENV, [...ROUND1, DEV2, secretResult])
