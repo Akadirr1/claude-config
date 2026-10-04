@@ -236,7 +236,8 @@ export function artifactsOf(e, res) {
     const m = COMMIT.exec(outText(res))
     if (m) out.commits.push({ branch: m[1], sha: m[2], msg: m[3] })
   }
-  if (/\bgh\s+pr\s+create\b/.test(bash) || /pull_?request/i.test(String(e.tool ?? '')))
+  // yalnız PR açan çağrılar: list/search/read araçlarının çıktısındaki yabancı PR'lar "açıldı" sayılmasın
+  if (/\bgh\s+pr\s+create\b/.test(bash) || /create_?pull_?request$/i.test(String(e.tool ?? '')))
     for (const u of new Set(outText(res).match(PR_URL) ?? [])) out.prs.push(u)
   return out
 }

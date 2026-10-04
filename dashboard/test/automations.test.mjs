@@ -121,12 +121,12 @@ test('sunucu: otomasyon API oturum, aynı köken ve JSON ister; push run_end tet
   writeFileSync(join(pubDir, 'index.html'), 'x')
   t.after(() => rmSync(pubDir, { recursive: true, force: true }))
   const sent = []
-  const TOKEN = 'test-token-0123456789abcdef-0123456'
-  const server = createServer({ token: TOKEN, publicDir: pubDir, resolve: pub, fetchImpl: async (u, i) => (sent.push({ u, ...i }), { ok: true, status: 200 }) })
+  const TOKEN = 'test-token-0123456789abcdef-0123456', VIEW = 'view-token-0123456789abcdef-012345'
+  const server = createServer({ token: TOKEN, viewToken: VIEW, publicDir: pubDir, resolve: pub, fetchImpl: async (u, i) => (sent.push({ u, ...i }), { ok: true, status: 200 }) })
   await new Promise(r => server.listen(0, '127.0.0.1', r))
   t.after(() => { server.closeAllConnections(); server.close() })
   const base = `http://127.0.0.1:${server.address().port}`
-  const login = await fetch(base + '/login', { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `token=${TOKEN}` })
+  const login = await fetch(base + '/login', { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `token=${VIEW}` })
   const cookie = login.headers.get('set-cookie').split(';')[0]
   const settings = { rules: [hook({ type: 'run_end' })] }
   const post = (headers, body = JSON.stringify(settings), path = '/api/automations') => fetch(base + path, { method: 'POST', headers, body })
@@ -136,7 +136,11 @@ test('sunucu: otomasyon API oturum, aynı köken ve JSON ister; push run_end tet
   assert.equal((await post({ Cookie: cookie, 'Content-Type': 'application/json' }, '{"rules":[{"trigger":{"type":"run_end"},"action":{"url":"http://x"}}]}')).status, 400)
   assert.equal((await post({ Cookie: cookie, 'Content-Type': 'application/json' })).status, 200)
   const got = await (await fetch(base + '/api/automations', { headers: { Cookie: cookie } })).json()
-  assert.equal(got.settings.rules[0].action.url, 'https://hooks.example.com/x')
+  assert.equal(got.settings.rules[0].action.url, 'https://hooks.example.com/•••om/x', 'webhook adresi maskeli')
+  assert.equal(got.writable, true)
+  // maskeli adresle geri kaydetmek gerçek adresi korur
+  assert.equal((await post({ Cookie: cookie, 'Content-Type': 'application/json' }, JSON.stringify(got.settings))).status, 200)
+  assert.equal(server.auto.get().settings.rules[0].action.url, 'https://hooks.example.com/•••om/x')
   assert.ok('month' in got.spend)
   const push = b => fetch(base + '/api/push', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
   const r = status => ({ taskId: 't9', name: 'feature', status, startedAt: 1, endedAt: null, phases: [], agents: [], edges: [] })
@@ -155,4 +159,45 @@ test('pr_opened: yeni PR bir kez bildirilir, bağlantı PR\'ın kendisi', async 
   const m = JSON.parse(sent[0].body)
   assert.equal(m.link, 'https://github.com/o/r/pull/2')
   assert.match(m.title, /o\/r\/pull\/2/)
+})
+
+test('ayrı görüntüleme token\'ı yoksa otomasyonlar salt okunur (push token\'ı webhook ekleyemez)', async t => {
+  const pubDir = mkdtempSync(join(tmpdir(), 'wf-pub-'))
+  writeFileSync(join(pubDir, 'index.html'), 'x')
+  t.after(() => rmSync(pubDir, { recursive: true, force: true }))
+  const TOKEN = 'test-token-0123456789abcdef-0123456'
+  const server = createServer({ token: TOKEN, publicDir: pubDir })
+  await new Promise(r => server.listen(0, '127.0.0.1', r))
+  t.after(() => { server.closeAllConnections(); server.close() })
+  const base = `http://127.0.0.1:${server.address().port}`
+  const login = await fetch(base + '/login', { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `token=${TOKEN}` })
+  const cookie = login.headers.get('set-cookie').split(';')[0]
+  const r = await fetch(base + '/api/automations', { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ rules: [hook({ type: 'run_end' })] }) })
+  assert.equal(r.status, 403)
+  assert.equal((await (await fetch(base + '/api/automations', { headers: { Cookie: cookie } })).json()).writable, false)
+})
+
+test('Slack/Discord: agent metnindeki toplu etiket ve gizli bağlantı etkisiz', () => {
+  const msg = { title: '✕ <!channel> <https://evil|tıkla> hata verdi', body: '@everyone [bak](https://evil)', link: 'https://p/x' }
+  const sl = JSON.parse(payload('slack', msg).body).text
+  assert.ok(!sl.includes('<!channel>') && !sl.includes('<https://evil'), sl)
+  assert.match(sl, /<https:\/\/p\/x\|Panelde aç>$/)
+  const dc = JSON.parse(payload('discord', msg).body)
+  assert.deepEqual(dc.allowed_mentions, { parse: [] })
+  assert.ok(!dc.content.includes('@everyone') && !dc.content.includes('[bak](https'), dc.content)
+})
+
+test('SSRF: ayrılmış IPv6 biçimleri ve test gönderimi hız sınırı', async () => {
+  for (const url of ['https://[::]/', 'https://[64:ff9b::a00:1]/', 'https://[::a00:1]/', 'https://[fec0::1]/', 'https://198.18.0.1/'])
+    assert.equal(await safeTarget(url), false, url)
+  const { a } = harness({ rules: [] })
+  await a.test({ url: 'https://ok.example/x', format: 'json' })
+  await assert.rejects(() => a.test({ url: 'https://ok.example/x', format: 'json' }), /bekle/)
+})
+
+test('bozuk zaman damgası sayımı ve saati düşürmez', async () => {
+  const { a } = harness({ rules: [hook({ type: 'quiet_agent', min: 1 }), hook({ type: 'daily_cost', usd: 1 }, { id: 'k2' })] })
+  const v = view([wf('running', [agent('x', { startedAt: 1e300, steps: [null, { t: 'x' }] })])])
+  await a.tick([v], [{ start: 1e300, cost: 5 }, { start: NaN, cost: 1 }])
+  assert.ok(spend([{ start: 1e300, cost: 5 }], Date.now(), 0).today === 0)
 })

@@ -174,15 +174,17 @@ const running = v =>
 // Defter satırları: analiz ve CSV dışa aktarımı bunlardan yapılır (her agent bir satır)
 export function rows(v) {
   const out = []
+  // push token'ı sahibi 1e300 gibi zaman gönderirse tarih hesapları (toISOString) patlar
+  const ts = x => (num(x) > 0 && num(x) < 8.64e15 ? num(x) : 0)
   const row = (kind, a, extra = {}) => {
     const t = a.tokens
     out.push({
       sid: v.id, repo: v.repo, kind, id: a.id ?? 'main', label: str(a.label, 120) || (kind === 'main' ? 'Şef' : '?'), cls: a.cls,
-      agentType: str(a.agentType, 80), model: a.model ?? '', status: a.status ?? '', start: num(a.startedAt), end: num(a.endedAt),
+      agentType: str(a.agentType, 80), model: a.model ?? '', status: a.status ?? '', start: ts(a.startedAt), end: ts(a.endedAt),
       in: t.in, out: t.out, cr: t.cr, cw: t.cw, n: t.n, cost: t.cost, g: num(a.graph?.g), r: num(a.graph?.r), ...extra,
     })
   }
-  if (v.main) row('main', v.main, { start: num(v.main.startedAt) || v.firstAt, end: v.receivedAt, status: v.main.status ?? '' })
+  if (v.main) row('main', v.main, { start: ts(v.main.startedAt) || v.firstAt, end: v.receivedAt, status: v.main.status ?? '' })
   for (const s of v.subs) row('sub', s)
   for (const r of v.runs) for (const a of r.agents) row('wf', a, { run: str(r.name, 120), runId: r.taskId })
   return out

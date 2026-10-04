@@ -184,6 +184,7 @@ export function renderAutomations() {
   if (!st.draft) return put(box, head, st.err ? h('p', { class: 'err', text: st.err }) : h('p', { class: 'muted', text: 'yükleniyor…' }))
   put(box, head,
     st.err ? h('p', { class: 'err', role: 'alert', text: st.err }) : null,
+    st.data?.writable === false ? h('p', { class: 'warns', text: 'Salt okunur: kuralları kaydetmek için sunucuya ayrı bir WF_VIEW_TOKEN ekle. Tek token\'la cloud ortamındaki push token\'ı da panele girebildiği için yazma kapalı.' }) : null,
     h('div', { class: 'cgrid' },
       panel('Bütçe', 'harcama ve gidiş', budgetPanel()),
       panel('Günlük özet', 'sabah raporu', digestPanel()),
@@ -192,5 +193,5 @@ export function renderAutomations() {
     h('div', { class: `savebar${st.dirty ? ' dirty' : ''}` },
       h('span', { id: 'auto-msg', class: 'muted', text: st.msg || (st.data?.publicUrl ? '' : 'İpucu: WF_PUBLIC_URL tanımlarsan bildirimler panele bağlantı taşır.') }),
       st.dirty ? h('button', { type: 'button', class: 'ghost', onclick: () => { st.dirty = false; st.msg = ''; st.draft = structuredClone(st.data.settings); renderAutomations() } }, 'Vazgeç') : null,
-      h('button', { type: 'button', class: 'primary', disabled: st.dirty ? null : true, onclick: save }, 'Kaydet')))
+      h('button', { type: 'button', class: 'primary', disabled: st.dirty && st.data?.writable !== false ? null : true, onclick: save }, 'Kaydet')))
 }

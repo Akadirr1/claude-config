@@ -93,14 +93,15 @@ export function cleanSettings(raw) {
 function privateIp(ip) {
   if (isIP(ip) === 4) {
     const [a, b] = ip.split('.').map(Number)
-    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224
+    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || (a === 198 && (b === 18 || b === 19)) || (a === 192 && b === 0) || a >= 224
   }
   const x = ip.toLowerCase()
   if (x.startsWith('::ffff:')) {
     const m = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(x.slice(7)) // URL'ler eşlenmiş IPv4'ü onaltılık yazar
     return privateIp(m ? [parseInt(m[1], 16) >> 8, parseInt(m[1], 16) & 255, parseInt(m[2], 16) >> 8, parseInt(m[2], 16) & 255].join('.') : x.slice(7))
   }
-  return x === '::1' || x === '::' || x.startsWith('fc') || x.startsWith('fd') || x.startsWith('fe8') || x.startsWith('fe9') || x.startsWith('fea') || x.startsWith('feb')
+  if (x.startsWith('::') && x.length > 2) return true // IPv4 uyumlu (::a.b.c.d) ve diğer ayrılmış biçimler
+  return x === '::' || x.startsWith('64:ff9b:') || /^f[cd]/.test(x) || /^fe[89a-f]/.test(x)
 }
 // ponytail: çözüm ile fetch arasında DNS yeniden bağlama (rebinding) mümkün; gerekirse undici Agent ile IP sabitlenir.
 export async function safeTarget(url, resolve = lookup) {
@@ -112,10 +113,13 @@ export async function safeTarget(url, resolve = lookup) {
 }
 
 // ---- mesaj biçimleri
+// Başlık ve gövde agent'ların yazdığı metni (label, repo) taşır: Slack <!channel>/<url|…>, Discord @everyone/[..](..) etkisizleşir
+const slackEsc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const discordEsc = t => t.replace(/@/g, '@\u200b').replace(/[[\]()`*_~|>]/g, '\\$&')
 export function payload(format, msg) {
   const text = `${msg.title}${msg.body ? ' — ' + msg.body : ''}`
-  if (format === 'slack') return { body: JSON.stringify({ text: msg.link ? `${text}\n<${msg.link}|Panelde aç>` : text }), headers: { 'Content-Type': 'application/json' } }
-  if (format === 'discord') return { body: JSON.stringify({ content: msg.link ? `${text}\n${msg.link}` : text }), headers: { 'Content-Type': 'application/json' } }
+  if (format === 'slack') return { body: JSON.stringify({ text: `${slackEsc(text)}${msg.link ? `\n<${msg.link}|Panelde aç>` : ''}` }), headers: { 'Content-Type': 'application/json' } }
+  if (format === 'discord') return { body: JSON.stringify({ content: `${discordEsc(text)}${msg.link ? `\n${msg.link}` : ''}`, allowed_mentions: { parse: [] } }), headers: { 'Content-Type': 'application/json' } }
   if (format === 'ntfy') {
     // başlıklar yalnız ASCII taşır: başlık gövdeye, etiket başlığa
     const headers = { 'Content-Type': 'text/plain; charset=utf-8', Tags: msg.tag ?? 'robot' }
@@ -125,7 +129,8 @@ export function payload(format, msg) {
   return { body: JSON.stringify({ event: msg.event, title: msg.title, body: msg.body, link: msg.link ?? null, session: msg.session ?? null, at: msg.at }), headers: { 'Content-Type': 'application/json' } }
 }
 
-const dayKey = (t, tz) => new Date(t + tz * 60000).toISOString().slice(0, 10)
+const okT = t => Number.isFinite(t) && t > 0 && t < 8.64e15
+const dayKey = (t, tz) => (okT(t) ? new Date(t + tz * 60000).toISOString().slice(0, 10) : '')
 const monthKey = (t, tz) => dayKey(t, tz).slice(0, 7)
 const fmt = v => (v < 10 ? '$' + v.toFixed(2) : '$' + v.toFixed(1))
 
@@ -203,16 +208,32 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
     return deliver(rule.action, msg, rule.id)
   }
 
+  let testBusy = false, lastTest = 0
+  const actions = () => [...settings.rules.map(r => r.action), settings.digest.action].filter(Boolean)
+  const unmask = url => actions().find(a => maskUrl(a.url) === url)?.url ?? url
+  const unmaskAll = raw => {
+    if (!isObj(raw)) return raw
+    const fix = a => (isObj(a) ? { ...a, url: unmask(a.url) } : a)
+    return { ...raw, rules: Array.isArray(raw.rules) ? raw.rules.map(r => (isObj(r) ? { ...r, action: fix(r.action) } : r)) : raw.rules, digest: isObj(raw.digest) ? { ...raw.digest, action: fix(raw.digest.action) } : raw.digest }
+  }
   const repoOk = (rule, repo) => !rule.trigger.repo || rule.trigger.repo === repo
 
   return {
-    get: () => ({ settings, deliveries: deliveries.slice().reverse(), triggers: TRIGGERS, formats: FORMATS }),
+    // webhook adresleri sırdır: panele maskeli gider, geri gelen maske kayıtlı adrese çevrilir
+    get: () => ({ settings: masked(settings), deliveries: deliveries.slice().reverse(), triggers: TRIGGERS, formats: FORMATS }),
     set(raw) {
-      settings = cleanSettings(raw)
+      settings = cleanSettings(unmaskAll(raw))
       save()
-      return settings
+      return masked(settings)
     },
-    test: action => deliver(cleanAction(action), { event: 'test', title: 'wf·akış test bildirimi', body: 'Bu kanal çalışıyor.', link: publicUrl || null, tag: 'white_check_mark' }, 'test'),
+    async test(action) {
+      const t = now()
+      if (testBusy || t - lastTest < TEST_GAP_MS) throw new Error('test için birkaç saniye bekle')
+      const a = cleanAction(isObj(action) ? { ...action, url: unmask(action.url) } : action)
+      testBusy = true
+      lastTest = t
+      return deliver(a, { event: 'test', title: 'wf·akış test bildirimi', body: 'Bu kanal çalışıyor.', link: publicUrl || null, tag: 'white_check_mark' }, 'test').finally(() => (testBusy = false))
+    },
 
     // push sonrası: önceki ve yeni görünümün farkı
     async onIngest(prev, v, allRows) {
@@ -280,7 +301,7 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
           if (tr.type === 'quiet_agent')
             for (const a of [...v.subs, ...v.runs.flatMap(r => r.agents)]) {
               if (a.status !== 'running') continue
-              const last = Math.max(a.startedAt ?? 0, ...(a.steps ?? []).map(x => x.t ?? 0))
+              const last = Math.max(num(a.startedAt, 0), ...(Array.isArray(a.steps) ? a.steps : []).map(x => num(x?.t, 0)))
               if (at - last >= tr.min * 60e3)
                 jobs.push(fire(rule, `${rule.id}:quiet:${a.id}:${last}`, { event: 'quiet_agent', title: `⏸ ${a.label} ${tr.min} dk'dır sessiz`, body: v.repo, link: link(v.id), session: v.id, tag: 'hourglass' }))
             }
@@ -304,6 +325,19 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
   }
 }
 
+const TEST_GAP_MS = 3000
+export function maskUrl(url) {
+  try {
+    const u = new URL(url)
+    return `${u.origin}/•••${url.slice(-4)}`
+  } catch {
+    return '•••'
+  }
+}
+const masked = s => {
+  const m = a => (a ? { ...a, url: maskUrl(a.url) } : a)
+  return { ...s, rules: s.rules.map(r => ({ ...r, action: m(r.action) })), digest: { ...s.digest, action: m(s.digest.action) } }
+}
 const asciiTitle = s => String(s).normalize('NFKD').replace(/[^\x20-\x7e]/g, '').trim().slice(0, 120) || 'wf-akis'
 
 // Günlük özet: dünün özeti + ay durumu, şablonla (LLM gerekmez)

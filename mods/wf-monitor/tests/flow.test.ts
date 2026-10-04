@@ -729,6 +729,7 @@ describe('wf-monitor', () => {
   test('artifactsOf: hata sonucu ve commit olmayan çıktı eser değildir', async () => {
     expect(artifactsOf({ tool: 'Edit', file_path: '/a' }, { isError: true, result: 'x' })).toEqual({ files: [], commits: [], prs: [] })
     expect(artifactsOf({ tool: 'Bash', command: 'git commit' }, { result: { stdout: 'nothing to commit' } }).commits).toEqual([])
+    expect(artifactsOf({ tool: 'mcp__github__list_pull_requests' }, { result: 'https://github.com/x/y/pull/1' }).prs).toEqual([])
     expect(artifactsOf({ tool: 'Bash', command: 'git commit --amend' }, { result: { stdout: '[main 0123abc] fix' } }).commits).toEqual([{ branch: 'main', sha: '0123abc', msg: 'fix' }])
   })
 })

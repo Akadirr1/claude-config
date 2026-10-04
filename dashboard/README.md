@@ -38,6 +38,8 @@ Cloud ortamında (setup script'i `install.sh` çalıştıran) `WF_MONITOR_URL=ht
   bitti/başarısız, agent hata verdi, PR açıldı, session/günlük maliyet eşiği, bütçenin %50/80/100'ü, agent N dk
   sessiz, workflow N dk'yı geçti. Kanallar: JSON webhook, Slack, Discord, ntfy (telefona push; `https://ntfy.sh/<gizli-konu>`).
   Günlük/aylık bütçe, ay sonu tahmini, her sabah dünün özeti, teslim günlüğü. Yalnız `https` ve dış adreslere gönderir.
+  **Kural yazmak için ayrı `WF_VIEW_TOKEN` gerekir** (yoksa salt okunur): tek token'la cloud ortamındaki push token'ı da
+  panele girip kendi webhook'unu ekleyebilirdi. Webhook adresleri panele maskeli gelir.
 - Komut paleti (`Ctrl/⌘+K` ya da `/`): görünümler, session/agent arama, 6 tema (Obsidyen, Parşömen, Kehribar CRT,
   Orman, Gül, Yüksek kontrast), **TV modu** (başlık gizlenir; canlı session'lar, Evren ve Maliyet 30 sn'de bir döner),
   **ses** (olaylar sınıfına göre notaya dönüşür). Bildirimler (🔔; iOS'ta ana ekrana ekleyince).

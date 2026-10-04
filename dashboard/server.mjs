@@ -206,7 +206,7 @@ export function createServer({
     }
     if (out) {
       broadcast('session', JSON.stringify({ serverNow: receivedAt, summary: out.summary, patch: out.patch }))
-      auto.onIngest(out.prev, out.view, store.rows()).catch(e => console.warn(`otomasyon: ${e.message}`))
+      Promise.resolve().then(() => auto.onIngest(out.prev, out.view, store.rows())).catch(e => console.warn(`otomasyon: ${e.message}`))
     }
     res.writeHead(204).end()
   }
@@ -249,7 +249,7 @@ export function createServer({
     if (path === '/api/stats') return json(res, store.stats(opts))
     if (path === '/api/automations') {
       const a = auto.get()
-      return json(res, { ...a, spend: spend(store.rows(), opts.now, a.settings.tz), publicUrl: Boolean(publicUrl) })
+      return json(res, { ...a, spend: spend(store.rows(), opts.now, a.settings.tz), publicUrl: Boolean(publicUrl), writable: autoWritable })
     }
     if (path === '/api/export.csv') {
       const { from } = store.stats({ ...opts }).range
@@ -261,9 +261,12 @@ export function createServer({
     res.writeHead(404).end()
   }
 
-  // Ayar yazma: oturum + aynı köken + JSON gövde (form ile çapraz site gönderimi olmasın)
+  // Ayar yazma: oturum + aynı köken + JSON gövde (form ile çapraz site gönderimi olmasın).
+  // Ayrı WF_VIEW_TOKEN şart: yoksa cloud ortamındaki push token'ı panele girip kendi webhook'unu ekleyebilirdi.
+  const autoWritable = viewToken !== undefined && viewToken !== token
   async function settingsWrite(req, res, path) {
     if (!authed(req)) return res.writeHead(401).end()
+    if (!autoWritable) return json(res, { error: 'Otomasyonları değiştirmek için sunucuda ayrı bir WF_VIEW_TOKEN tanımla.' }, 403)
     if (crossSite(req) || !/^application\/json\b/.test(req.headers['content-type'] || '')) return res.writeHead(403).end()
     const raw = await readBody(req, MAX_SETTINGS)
     if (raw === null) return res.writeHead(413).end()
@@ -320,7 +323,8 @@ export function createServer({
     setInterval(() => { for (const res of clients) write(res, ': ping\n\n') }, 25000),
     setInterval(sweep, 60000),
     setInterval(() => store.flush(), 2000),
-    setInterval(() => auto.tick(store.live(now(), 50), store.rows()).catch(e => console.warn(`otomasyon: ${e.message}`)), 60000),
+    // senkron hata da yakalansın: setInterval'dan kaçan istisna süreci düşürür
+    setInterval(() => Promise.resolve().then(() => auto.tick(store.live(now(), 50), store.rows())).catch(e => console.warn(`otomasyon: ${e.message}`)), 60000),
   ]
   for (const t of timers) t.unref()
   server.on('close', () => {
