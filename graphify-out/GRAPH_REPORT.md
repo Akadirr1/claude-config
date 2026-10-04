@@ -1,61 +1,63 @@
 # Graph Report - claude-config  (2026-10-04)
 
 ## Corpus Check
-- 12 files · ~4,798 words
+- 17 files · ~17,813 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 1 file(s) not represented in the graph (top: (none) 1)
+- Unclassified: 3 file(s) not represented in the graph (top: (none) 2, .css 1)
 
 ## Summary
-- 63 nodes · 92 edges · 13 communities (8 shown, 5 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 1 edges (avg confidence: 0.85)
+- 218 nodes · 449 edges · 17 communities (11 shown, 6 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 9 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1b6438f7`
+- Built from commit: `b0cbf688`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- server.mjs
+- createServer
 - feature.js
 - claude-config
-- register
-- flow.test.ts
 - register.js
-- poll
-- push
+- flow.test.ts
+- simulate.mjs
+- app.js
+- h
 - install.sh
+- nodeEl
+- renderGraph
+- normRun
+- login.js
 
 ## God Nodes (most connected - your core abstractions)
-1. `register()` - 16 edges
-2. `finish()` - 8 edges
-3. `push()` - 7 edges
-4. `claude-config` - 7 edges
-5. `server` - 6 edges
-6. `summaryText()` - 5 edges
-7. `refresh()` - 5 edges
-8. `poll()` - 5 edges
-9. `viewer()` - 4 edges
-10. `since()` - 4 edges
+1. `register()` - 26 edges
+2. `createServer()` - 16 edges
+3. `h()` - 13 edges
+4. `render()` - 13 edges
+5. `renderDetail()` - 12 edges
+6. `connect()` - 11 edges
+7. `push()` - 11 edges
+8. `view()` - 10 edges
+9. `Run` - 9 edges
+10. `renderGraph()` - 9 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `register()` --calls--> `short()`  [EXTRACTED]
-  mods/wf-monitor/hooks/register.js → mods/wf-monitor/hooks/register.js  _Bridges community 5 → community 3_
-- `summaryText()` --calls--> `since()`  [EXTRACTED]
-  mods/wf-monitor/hooks/register.js → mods/wf-monitor/hooks/register.js  _Bridges community 3 → community 7_
-- `finish()` --calls--> `redraw()`  [EXTRACTED]
-  mods/wf-monitor/hooks/register.js → mods/wf-monitor/hooks/register.js  _Bridges community 6 → community 3_
-- `poll()` --calls--> `push()`  [EXTRACTED]
-  mods/wf-monitor/hooks/register.js → mods/wf-monitor/hooks/register.js  _Bridges community 7 → community 6_
+- `login()` --indirect_call--> `view()`  [INFERRED]
+  dashboard/server.mjs → mods/wf-monitor/hooks/register.js
+- `start()` --calls--> `createServer()`  [EXTRACTED]
+  dashboard/test/server.test.mjs → dashboard/server.mjs
+- `start()` --calls--> `login()`  [EXTRACTED]
+  dashboard/test/server.test.mjs → dashboard/server.mjs
 
 ## Import Cycles
 - None detected.
 
-## Communities (13 total, 5 thin omitted)
+## Communities (17 total, 6 thin omitted)
 
-### Community 0 - "server.mjs"
-Cohesion: 0.26
-Nodes (10): broadcast(), clients, cookieToken(), PORT, readBody(), same(), server, sessions (+2 more)
+### Community 0 - "createServer"
+Cohesion: 0.09
+Nodes (20): createServer(), authed(), events(), fail(), lockedFor(), login(), push(), redirect() (+12 more)
 
 ### Community 1 - "feature.js"
 Cohesion: 0.18
@@ -65,37 +67,57 @@ Nodes (8): input, list, MAX_ROUNDS, meta, QA, REVIEW, SPEC, task
 Cohesion: 0.25
 Nodes (7): Archify, claude-config, Commit ve PR, Graphify, Orkestrasyon, Review, Çalışma
 
-### Community 3 - "register"
-Cohesion: 0.43
-Nodes (7): finish(), hasRunning(), openPane(), phasesOf(), reconcile(), register(), since()
+### Community 3 - "register.js"
+Cohesion: 0.11
+Nodes (47): clip(), counts(), cut(), describe(), edgesOf(), finish(), fit(), hasRunning() (+39 more)
 
 ### Community 4 - "flow.test.ts"
+Cohesion: 0.12
+Nodes (13): DEV2, jsonl(), META, PANE, POST_ENV, QA, REVIEW, ROUND1 (+5 more)
+
+### Community 5 - "simulate.mjs"
+Cohesion: 0.20
+Nodes (15): argv, BASE, beat(), clock, FAST, hex(), PHASE_OF, PHASES (+7 more)
+
+### Community 6 - "app.js"
+Cohesion: 0.14
+Nodes (19): connect(), dropSession(), FILTERS, fmtAgo(), fmtShort(), narrow, newest(), parse() (+11 more)
+
+### Community 7 - "h"
+Cohesion: 0.25
+Nodes (15): closeDetail(), current(), filterBtns, fmtClock(), h(), listOf(), openDetail(), render() (+7 more)
+
+### Community 13 - "nodeEl"
+Cohesion: 0.29
+Nodes (10): agentEnd(), detailTick(), fmtDur(), fmtOff(), modNow(), nodeEl(), pad(), renderGantt() (+2 more)
+
+### Community 14 - "renderGraph"
+Cohesion: 0.24
+Nodes (10): attrs(), bucket(), drawEdges(), glyph(), lastStepT(), logDiff(), motion(), renderGraph() (+2 more)
+
+### Community 15 - "normRun"
 Cohesion: 0.33
-Nodes (3): PANE, textOf(), WF
-
-### Community 5 - "register.js"
-Cohesion: 0.50
-Nodes (4): describe(), lastAction, runs, short()
-
-### Community 6 - "poll"
-Cohesion: 0.50
-Nodes (4): poll(), redraw(), refresh(), startPolling()
-
-### Community 7 - "push"
-Cohesion: 1.00
-Nodes (3): push(), summaryText(), view()
+Nodes (9): arr(), each(), ingest(), normRun(), normSession(), num(), roleKey(), stKey() (+1 more)
 
 ## Knowledge Gaps
-- **22 isolated node(s):** `PORT`, `sessions`, `clients`, `install.sh script`, `runs` (+17 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 34 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **48 isolated node(s):** `argv`, `BASE`, `FAST`, `PHASES`, `PHASE_OF` (+43 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 68 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **6 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `register()` connect `register` to `register.js`, `poll`, `push`?**
-  _High betweenness centrality (0.016) - this node is a cross-community bridge._
-- **Why does `finish()` connect `register` to `register.js`, `poll`, `push`?**
-  _High betweenness centrality (0.003) - this node is a cross-community bridge._
-- **What connects `PORT`, `sessions`, `clients` to the rest of the system?**
-  _22 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Why does `view()` connect `register.js` to `createServer`?**
+  _High betweenness centrality (0.164) - this node is a cross-community bridge._
+- **Why does `login()` connect `createServer` to `register.js`?**
+  _High betweenness centrality (0.164) - this node is a cross-community bridge._
+- **Are the 2 inferred relationships involving `renderDetail()` (e.g. with `closeDetail()` and `detailTick()`) actually correct?**
+  _`renderDetail()` has 2 INFERRED edges - model-reasoned connections that need verification._
+- **What connects `argv`, `BASE`, `FAST` to the rest of the system?**
+  _48 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `createServer` be split into smaller, more focused modules?**
+  _Cohesion score 0.09365079365079365 - nodes in this community are weakly interconnected._
+- **Should `register.js` be split into smaller, more focused modules?**
+  _Cohesion score 0.11081560283687943 - nodes in this community are weakly interconnected._
+- **Should `flow.test.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.11764705882352941 - nodes in this community are weakly interconnected._
