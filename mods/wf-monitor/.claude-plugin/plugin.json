@@ -1,6 +1,6 @@
 {
   "name": "wf-monitor",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Session'daki bütün agentic işi izler: orkestratör, alt agent'lar ve workflow run'ları; model bazında token, araç karışımı ve graphify kullanımı. Yan pane, /wf özeti ve dashboard'a canlı push (v3).",
   "author": {
     "name": "Akadirr1"
