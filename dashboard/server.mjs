@@ -1,20 +1,38 @@
 // wf-dashboard: wf-monitor mod'unun cloud session'lardan gönderdiği durumu canlı gösterir.
-// Bağımlılık yok. Ortam: WF_MONITOR_TOKEN (zorunlu), PORT (varsayılan 3000).
+// Bağımlılık yok. Ortam: WF_MONITOR_TOKEN (zorunlu, ≥16), PORT (3000), WF_PUBLIC_DIR (./public).
 import http from 'node:http'
-import { timingSafeEqual } from 'node:crypto'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, extname } from 'node:path'
+import { createHmac, timingSafeEqual } from 'node:crypto'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const TOKEN = process.env.WF_MONITOR_TOKEN
-const PORT = Number(process.env.PORT || 3000)
 const TTL_MS = 24 * 3600 * 1000
-const MAX_BODY = 256 * 1024
+const MAX_PUSH = 256 * 1024
+const MAX_LOGIN = 4 * 1024
+const MAX_RUNS = 20
+const SESSION_MS = 30 * 24 * 3600 * 1000
+const RATE_WINDOW = 15 * 60 * 1000
+const RATE_MAX = 5
+const RATE_TABLE_MAX = 10000
 
-if (!TOKEN || TOKEN.length < 16) {
-  console.error('WF_MONITOR_TOKEN en az 16 karakter olmalı')
-  process.exit(1)
+const TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
 }
-
-const sessions = new Map() // session id -> { id, repo, receivedAt, runs }
-const clients = new Set()
+const OPEN = new Set(['/login.html', '/login.js', '/style.css', '/favicon.svg'])
+const SEC = {
+  'Content-Security-Policy':
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'Cache-Control': 'no-store',
+}
 
 function same(a, b) {
   const x = Buffer.from(String(a))
@@ -22,187 +40,196 @@ function same(a, b) {
   return x.length === y.length && timingSafeEqual(x, y)
 }
 
-function cookieToken(req) {
-  const m = /(?:^|;\s*)wfk=([^;]+)/.exec(req.headers.cookie || '')
-  return m ? decodeURIComponent(m[1]) : ''
-}
-
-function viewer(req, url) {
-  return same(cookieToken(req), TOKEN) || same(url.searchParams.get('k') || '', TOKEN)
-}
-
-function snapshot() {
-  const list = [...sessions.values()].sort((a, b) => b.receivedAt - a.receivedAt)
-  return JSON.stringify({ serverNow: Date.now(), sessions: list })
-}
-
-function broadcast() {
-  const data = `data: ${snapshot()}\n\n`
-  for (const res of clients) res.write(data)
-}
-
-function readBody(req) {
+// Gövdeyi max'a kadar biriktirir, fazlasını atar (bağlantıyı koparmadan 413 dönebilmek için); fazlaysa null.
+function readBody(req, max) {
   return new Promise((resolve, reject) => {
     let size = 0
     const chunks = []
     req.on('data', c => {
       size += c.length
-      if (size > MAX_BODY) {
-        reject(new Error('too large'))
-        req.destroy()
-      } else chunks.push(c)
+      if (size <= max) chunks.push(c)
     })
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+    req.on('end', () => resolve(size > max ? null : Buffer.concat(chunks).toString('utf8')))
     req.on('error', reject)
   })
 }
 
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://x')
+// Başlangıçta public/ düz dosyalarını belleğe alır; yalnız bunlar servis edilir (traversal yok).
+function loadStatic(dir) {
+  const files = new Map()
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name)
+    if (name.startsWith('.') || !statSync(p).isFile()) continue
+    files.set('/' + name, { body: readFileSync(p), type: TYPES[extname(name)] || 'application/octet-stream' })
+  }
+  return files
+}
 
-  if (req.method === 'GET' && url.pathname === '/healthz') {
-    res.writeHead(200, { 'Content-Type': 'text/plain' }).end('ok')
-    return
+export function createServer({ token, publicDir = fileURLToPath(new URL('./public/', import.meta.url)), now = Date.now }) {
+  if (!token || token.length < 16) throw new Error('WF_MONITOR_TOKEN en az 16 karakter olmalı')
+  const files = loadStatic(publicDir)
+  const key = createHmac('sha256', token).update('wf-session-key').digest()
+  const sessions = new Map() // id -> { id, repo, receivedAt, sentAt, runs }
+  const clients = new Set()
+  const failures = new Map() // ip -> { count, resetAt }
+
+  const sign = issuedAt => createHmac('sha256', key).update('wf-session:' + issuedAt).digest('base64url')
+
+  function authed(req) {
+    const m = /(?:^|;\s*)wf_session=(\d{1,15})\.([A-Za-z0-9_-]{1,64})(?:;|$)/.exec(req.headers.cookie || '')
+    if (!m) return false
+    const issuedAt = Number(m[1])
+    const t = now()
+    return issuedAt <= t && t - issuedAt < SESSION_MS && same(m[2], sign(issuedAt))
   }
 
-  if (req.method === 'POST' && url.pathname === '/api/push') {
-    if (!same(req.headers.authorization || '', `Bearer ${TOKEN}`)) {
-      res.writeHead(401).end()
-      return
+  function send(res, event, obj) {
+    // JSON.stringify \n ve \r'yi kaçışlar; tek data satırı garanti.
+    res.write(`event: ${event}\ndata: ${JSON.stringify(obj)}\n\n`)
+  }
+  const broadcast = (event, obj) => { for (const res of clients) send(res, event, obj) }
+
+  function sweep() {
+    const t = now()
+    for (const [id, s] of sessions) {
+      if (s.receivedAt < t - TTL_MS) {
+        sessions.delete(id)
+        broadcast('remove', { serverNow: t, id })
+      }
     }
-    try {
-      const body = JSON.parse(await readBody(req))
-      const id = String(body?.session?.id || '')
-      if (!id || !Array.isArray(body.runs)) throw new Error('bad shape')
-      sessions.set(id, {
-        id,
-        repo: String(body.session.repo || ''),
-        receivedAt: Date.now(),
-        runs: body.runs.slice(-10),
+    for (const [ip, f] of failures) if (f.resetAt <= t) failures.delete(ip)
+  }
+
+  function redirect(res, location, extra = {}) {
+    res.writeHead(303, { Location: location, 'Cache-Control': 'no-store', ...extra }).end()
+  }
+
+  async function login(req, res) {
+    const ip = String(req.headers['cf-connecting-ip'] || req.socket.remoteAddress || '')
+    const body = await readBody(req, MAX_LOGIN)
+    if (body === null) return res.writeHead(413).end()
+    const t = now()
+    let f = failures.get(ip)
+    if (f && f.resetAt <= t) {
+      failures.delete(ip)
+      f = undefined
+    }
+    if (f && f.count >= RATE_MAX) {
+      return redirect(res, '/login?e=rate', { 'Retry-After': String(Math.ceil((f.resetAt - t) / 1000)) })
+    }
+    if (same(new URLSearchParams(body).get('token') || '', token)) {
+      failures.delete(ip)
+      const issuedAt = t
+      return redirect(res, '/', {
+        'Set-Cookie': `wf_session=${issuedAt}.${sign(issuedAt)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=2592000`,
       })
-      broadcast()
-      res.writeHead(204).end()
-    } catch {
-      res.writeHead(400).end()
     }
-    return
+    if (!f) {
+      if (failures.size >= RATE_TABLE_MAX) sweep()
+      // ponytail: tablo doluysa en eski girdiyi at; çok sayıda sahte IP ile sayaç silinebilir, token ≥16 kr olduğundan kabul.
+      if (failures.size >= RATE_TABLE_MAX) failures.delete(failures.keys().next().value)
+      f = { count: 0, resetAt: t + RATE_WINDOW }
+      failures.set(ip, f)
+    }
+    f.count++
+    redirect(res, '/login?e=bad')
   }
 
-  if (req.method === 'GET' && url.pathname === '/events') {
-    if (!viewer(req, url)) {
-      res.writeHead(401).end()
-      return
+  async function push(req, res) {
+    if (!same(req.headers.authorization || '', `Bearer ${token}`)) return res.writeHead(401).end()
+    const raw = await readBody(req, MAX_PUSH)
+    if (raw === null) return res.writeHead(413).end()
+    let body
+    try {
+      body = JSON.parse(raw)
+    } catch {
+      return res.writeHead(400).end()
     }
+    const id = body?.session?.id
+    const runs = body?.runs
+    if (body?.v !== 2 || typeof id !== 'string' || !id || !Array.isArray(runs) ||
+        !runs.every(r => r && typeof r === 'object' && typeof r.taskId === 'string' && r.taskId)) {
+      return res.writeHead(400).end()
+    }
+    const receivedAt = now()
+    const merged = new Map((sessions.get(id)?.runs || []).map(r => [r.taskId, r]))
+    for (const r of runs) merged.set(r.taskId, r)
+    const start = r => (Number.isFinite(r.startedAt) ? r.startedAt : 0)
+    const session = {
+      id,
+      repo: String(body.session.repo ?? ''),
+      receivedAt,
+      sentAt: Number.isFinite(body.sentAt) ? body.sentAt : receivedAt,
+      runs: [...merged.values()].sort((a, b) => start(a) - start(b)).slice(-MAX_RUNS),
+    }
+    sessions.set(id, session)
+    broadcast('session', { serverNow: receivedAt, session })
+    res.writeHead(204).end()
+  }
+
+  function events(req, res) {
+    if (!authed(req)) return res.writeHead(401).end()
     res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-store, no-transform',
+      'X-Content-Type-Options': 'nosniff',
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     })
-    res.write(`data: ${snapshot()}\n\n`)
+    const list = [...sessions.values()].sort((a, b) => b.receivedAt - a.receivedAt)
+    send(res, 'snapshot', { serverNow: now(), sessions: list })
     clients.add(res)
     req.on('close', () => clients.delete(res))
-    return
   }
 
-  if (req.method === 'GET' && url.pathname === '/') {
-    if (!viewer(req, url)) {
-      res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Yetki yok. /?k=<token> ile aç.')
-      return
+  const server = http.createServer(async (req, res) => {
+    try {
+      // 'http://x' + req.url: '//host' gibi yollar başka host'a çözülmesin
+      const path = new URL('http://x' + req.url).pathname
+      const route = `${req.method} ${path}`
+      if (route === 'GET /healthz') return res.writeHead(200, { 'Content-Type': 'text/plain' }).end('ok')
+      if (route === 'POST /api/push') return await push(req, res)
+      if (route === 'POST /login') return await login(req, res)
+      if (route === 'POST /logout') {
+        return redirect(res, '/login', { 'Set-Cookie': 'wf_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0' })
+      }
+      if (route === 'GET /api/me') return res.writeHead(authed(req) ? 204 : 401, { 'Cache-Control': 'no-store' }).end()
+      if (route === 'GET /events') return events(req, res)
+      if (req.method === 'GET') {
+        const name = path === '/' ? '/index.html' : path === '/login' ? '/login.html' : path
+        const file = files.get(name)
+        if (file) {
+          if (!OPEN.has(name) && !authed(req)) {
+            return name === '/index.html' ? redirect(res, '/login') : res.writeHead(401).end()
+          }
+          return res.writeHead(200, { 'Content-Type': file.type, ...SEC }).end(file.body)
+        }
+      }
+      res.writeHead(404).end()
+    } catch {
+      if (!res.headersSent) res.writeHead(400)
+      res.end()
     }
-    const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
-    if (url.searchParams.has('k')) {
-      const secure = req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : ''
-      headers['Set-Cookie'] = `wfk=${encodeURIComponent(TOKEN)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000${secure}`
-    }
-    res.writeHead(200, headers).end(PAGE)
-    return
+  })
+
+  // Bağlantıyı tünel/proxy zaman aşımına karşı canlı tut; eski session'ları ve hız sınırı kayıtlarını at
+  const timers = [
+    setInterval(() => { for (const res of clients) res.write(': ping\n\n') }, 25000),
+    setInterval(sweep, 60000),
+  ]
+  for (const t of timers) t.unref()
+  server.on('close', () => timers.forEach(clearInterval))
+  return server
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  let server
+  try {
+    server = createServer({ token: process.env.WF_MONITOR_TOKEN, publicDir: process.env.WF_PUBLIC_DIR || undefined })
+  } catch (e) {
+    console.error(e.message)
+    process.exit(1)
   }
-
-  res.writeHead(404).end()
-})
-
-// Bağlantıyı tünel/proxy zaman aşımına karşı canlı tut, eski session'ları at
-setInterval(() => {
-  for (const res of clients) res.write(': ping\n\n')
-}, 25000)
-setInterval(() => {
-  const cutoff = Date.now() - TTL_MS
-  let changed = false
-  for (const [id, s] of sessions) if (s.receivedAt < cutoff) changed = sessions.delete(id) || changed
-  if (changed) broadcast()
-}, 60000)
-
-server.listen(PORT, () => console.log(`wf-dashboard :${PORT}`))
-
-const PAGE = `<!doctype html>
-<html lang="tr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>workflow · canlı</title>
-<style>
-:root{--bg:#f4f1ea;--card:#fffdf8;--ink:#1d1a16;--dim:#7a7166;--line:#e4ddd0;--run:#c47a12;--ok:#4f7d3a;--bad:#b3401f;--chip:#efe8da;
-  color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root{--bg:#151311;--card:#1e1b18;--ink:#ece6dc;--dim:#968b7d;--line:#2e2a25;--run:#e8a33d;--ok:#8fbf6f;--bad:#e4724f;--chip:#2a2621}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:860px;margin:0 auto;padding:20px 16px 40px}
-header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:18px}
-h1{font-size:20px;margin:0;letter-spacing:-.01em}
-#conn{font-size:13px;color:var(--dim)}#conn::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bad);margin-right:6px;vertical-align:1px}
-#conn.on::before{background:var(--ok)}
-.session{margin-bottom:22px}.session h2{font-size:13px;font-weight:600;color:var(--dim);margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em}
-.run{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--dim);border-radius:10px;padding:14px 16px;margin-bottom:10px}
-.run.running{border-left-color:var(--run)}.run.failed,.run.killed{border-left-color:var(--bad)}.run.done{opacity:.72;border-left-color:var(--ok)}
-.top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.name{font-weight:650;font-size:16px}.status{font-size:13px;font-weight:600}.running .status{color:var(--run)}.done .status{color:var(--ok)}.failed .status,.killed .status{color:var(--bad)}
-.time{font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px}
-.stats{display:flex;gap:18px;margin:8px 0 6px;font-size:14px}.stats b{font-variant-numeric:tabular-nums}
-.phases{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.phases span{background:var(--chip);border-radius:999px;padding:2px 10px;font-size:12px}
-.last{font-size:13px;color:var(--dim)}
-.agents{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px;display:grid;gap:4px}
-.agent{display:grid;grid-template-columns:76px 1fr;gap:10px;font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-x:auto}
-.agent .id{color:var(--dim)}.agent.idle{opacity:.45}
-.empty{color:var(--dim);text-align:center;padding:60px 0}
-</style>
-</head>
-<body>
-<main>
-<header><h1>workflow · canlı</h1><span id="conn">bağlanıyor</span></header>
-<div id="root"><p class="empty">Henüz veri yok. Cloud session'da bir workflow başlatınca burada belirir.</p></div>
-</main>
-<script>
-const root = document.getElementById('root'), conn = document.getElementById('conn')
-let state = { sessions: [] }, offset = 0
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
-const dur = ms => { const s = Math.max(0, Math.round(ms / 1000)), m = Math.floor(s / 60), h = Math.floor(m / 60)
-  return h ? h + 'sa ' + (m % 60) + 'dk' : m ? m + 'dk ' + (s % 60) + 'sn' : s + 'sn' }
-const label = st => ({ running: 'çalışıyor', bitti: 'bitti', completed: 'bitti', failed: 'hata', killed: 'durduruldu' }[st] || st)
-const cls = st => st === 'running' ? 'running' : st === 'failed' ? 'failed' : st === 'killed' ? 'killed' : 'done'
-function render() {
-  const now = Date.now() + offset
-  if (!state.sessions.length) return
-  root.innerHTML = state.sessions.map(s => '<section class="session"><h2>' + esc(s.repo || s.id) + '</h2>' +
-    [...s.runs].reverse().map(r => {
-      const live = r.status === 'running' ? r.elapsedMs + (now - s.receivedAt) : r.elapsedMs
-      const active = r.agents.filter(a => a.active).length
-      return '<article class="run ' + cls(r.status) + '"><div class="top"><span class="name">' + esc(r.name) + '</span>' +
-        '<span><span class="status">' + esc(label(r.status)) + '</span> · <span class="time">' + dur(live) + '</span></span></div>' +
-        '<div class="stats"><span>başlayan <b>' + r.agents.length + '</b></span><span>aktif <b>' + active + '</b></span><span>biten <b>' + r.done + '</b></span></div>' +
-        (r.phases.length ? '<div class="phases">' + r.phases.map(p => '<span>' + esc(p) + '</span>').join('') + '</div>' : '') +
-        (r.lastLabel ? '<div class="last">son dönen: ' + esc(r.lastLabel) + '</div>' : '') +
-        (r.status === 'running' && r.agents.length ? '<div class="agents">' + r.agents.map(a =>
-          '<div class="agent' + (a.active ? '' : ' idle') + '"><span class="id">' + esc(a.id) + '</span><span>' + esc(a.last || (a.active ? '…' : 'bekliyor')) + '</span></div>').join('') + '</div>' : '') +
-        '</article>'
-    }).join('') + '</section>').join('')
+  const port = Number(process.env.PORT || 3000)
+  server.listen(port, () => console.log(`wf-dashboard :${port}`))
 }
-function connect() {
-  const es = new EventSource('/events' + location.search)
-  es.onopen = () => { conn.className = 'on'; conn.textContent = 'canlı' }
-  es.onmessage = ev => { state = JSON.parse(ev.data); offset = state.serverNow - Date.now(); render() }
-  es.onerror = () => { conn.className = ''; conn.textContent = 'bağlantı koptu, tekrar deniyor' }
-}
-connect(); setInterval(render, 1000)
-</script>
-</body>
-</html>`
