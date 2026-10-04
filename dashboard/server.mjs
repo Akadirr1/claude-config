@@ -1,6 +1,7 @@
 // wf-dashboard: wf-monitor mod'unun cloud session'lardan gönderdiği durumu canlı gösterir.
 // Bağımlılık yok. Ortam: WF_MONITOR_TOKEN (zorunlu, ≥16; /api/push), WF_VIEW_TOKEN (opsiyonel, ≥16; giriş formu,
-// yoksa WF_MONITOR_TOKEN), PORT (3000), WF_PUBLIC_DIR (./public).
+// yoksa WF_MONITOR_TOKEN), PORT (3000), WF_PUBLIC_DIR (./public), WF_DATA_DIR (./data; kalıcı defter, volume bağla),
+// WF_PRICING_FILE (opsiyonel; model fiyatlarını ezen JSON).
 // Cloudflare (tercihen Tunnel) arkasında çalışmalı: hız sınırı CF-Connecting-IP'ye güvenir; origin doğrudan
 // erişilebilirse başlık sahtelenip sınır atlanabilir.
 import http from 'node:http'
@@ -8,16 +9,15 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createStore, validate, csv as csvOf } from './store.mjs'
+import { PRICES } from './public/pricing.js'
 
-const TTL_MS = 24 * 3600 * 1000
 const MAX_PUSH = 256 * 1024
 const MAX_LOGIN = 4 * 1024
-const MAX_RUNS = 20
 const SESSION_MS = 30 * 24 * 3600 * 1000
 const RATE_WINDOW = 15 * 60 * 1000
 const RATE_MAX = 5
 const RATE_TABLE_MAX = 10000
-const MAX_SESSIONS = 50
 const MAX_BUFFERED = 1024 * 1024
 const CLEAR_OLD = 'wfk=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict'
 
@@ -30,8 +30,9 @@ const TYPES = {
   '.png': 'image/png',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json',
 }
-const OPEN = new Set(['/login.html', '/login.js', '/style.css', '/favicon.svg'])
+const OPEN = new Set(['/login.html', '/login.js', '/style.css', '/favicon.svg', '/manifest.webmanifest'])
 const SEC = {
   'Content-Security-Policy':
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
@@ -86,7 +87,9 @@ function crossSite(req) {
   }
 }
 
-export function createServer({ token, viewToken, publicDir = fileURLToPath(new URL('./public/', import.meta.url)), now = Date.now }) {
+export function createServer({
+  token, viewToken, publicDir = fileURLToPath(new URL('./public/', import.meta.url)), dataDir, prices = PRICES, now = Date.now,
+}) {
   for (const [name, v] of [['WF_MONITOR_TOKEN', token], ['WF_VIEW_TOKEN', viewToken]]) {
     if (name === 'WF_VIEW_TOKEN' && v === undefined) continue
     if (!v || v.length < 16) throw new Error(`${name} en az 16 karakter olmalı`)
@@ -95,7 +98,7 @@ export function createServer({ token, viewToken, publicDir = fileURLToPath(new U
   const view = viewToken ?? token
   const files = loadStatic(publicDir)
   const key = createHmac('sha256', view).update('wf-session-key').digest()
-  const sessions = new Map() // id -> { s: Session, json: JSON.stringify(s), sent: body.sentAt | undefined }
+  const store = createStore({ dataDir, prices, log: m => console.warn(m) })
   const clients = new Set()
   const failures = new Map() // ip -> { count, resetAt }
 
@@ -120,14 +123,11 @@ export function createServer({ token, viewToken, publicDir = fileURLToPath(new U
   // data: JSON metni; JSON.stringify \n ve \r'yi kaçışlar, tek data satırı garanti.
   const send = (res, event, data) => write(res, `event: ${event}\ndata: ${data}\n\n`)
   const broadcast = (event, data) => { for (const res of clients) send(res, event, data) }
-  const remove = (id, t) => {
-    sessions.delete(id)
-    broadcast('remove', JSON.stringify({ serverNow: t, id }))
-  }
+  const json = (res, data, status = 200) =>
+    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', ...SEC }).end(JSON.stringify(data))
 
   function sweep() {
     const t = now()
-    for (const [id, e] of sessions) if (e.s.receivedAt < t - TTL_MS) remove(id, t)
     for (const [ip, f] of failures) if (f.resetAt <= t) failures.delete(ip)
   }
 
@@ -189,40 +189,15 @@ export function createServer({ token, viewToken, publicDir = fileURLToPath(new U
     } catch {
       return res.writeHead(400).end()
     }
-    const id = body?.session?.id
-    const runs = body?.runs
-    if (body?.v !== 2 || typeof id !== 'string' || !id || !Array.isArray(runs) ||
-        !runs.every(r => r && typeof r === 'object' && typeof r.taskId === 'string' && r.taskId)) {
-      return res.writeHead(400).end()
-    }
-    const prev = sessions.get(id)
-    const sent = Number.isFinite(body.sentAt) ? body.sentAt : undefined
-    // Bayat (sırası karışmış) push: kabul et ama yok say.
-    if (sent !== undefined && prev?.sent !== undefined && sent < prev.sent) return res.writeHead(204).end()
+    if (!validate(body)) return res.writeHead(400).end()
     const receivedAt = now()
-    const merged = new Map((prev?.s.runs || []).map(r => [r.taskId, r]))
-    for (const r of runs) merged.set(r.taskId, r)
-    const start = r => (Number.isFinite(r.startedAt) ? r.startedAt : 0)
-    const session = {
-      id,
-      repo: String(body.session.repo ?? ''),
-      receivedAt,
-      sentAt: sent ?? receivedAt,
-      runs: [...merged.values()].sort((a, b) => start(a) - start(b)).slice(-MAX_RUNS),
-    }
-    let json
+    let out
     try {
-      json = JSON.stringify(session)
+      out = store.ingest(body, receivedAt) // bayat (sırası karışmış) push: null, kabul edilip yok sayılır
     } catch {
       return res.writeHead(400).end() // derin iç içe vb. (RangeError)
     }
-    sessions.set(id, { s: session, json, sent })
-    if (sessions.size > MAX_SESSIONS) {
-      let oldest
-      for (const [k, e] of sessions) if (!oldest || e.s.receivedAt < sessions.get(oldest).s.receivedAt) oldest = k
-      remove(oldest, receivedAt)
-    }
-    broadcast('session', `{"serverNow":${receivedAt},"session":${json}}`)
+    if (out) broadcast('session', JSON.stringify({ serverNow: receivedAt, summary: out.summary, patch: out.patch }))
     res.writeHead(204).end()
   }
 
@@ -235,10 +210,41 @@ export function createServer({ token, viewToken, publicDir = fileURLToPath(new U
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     })
-    const list = [...sessions.values()].sort((a, b) => b.s.receivedAt - a.s.receivedAt).map(e => e.json)
+    const t = now()
     clients.add(res)
-    send(res, 'snapshot', `{"serverNow":${now()},"sessions":[${list.join(',')}]}`)
+    send(res, 'snapshot', JSON.stringify({ serverNow: t, index: store.list(), live: store.live(t) }))
     req.on('close', () => clients.delete(res))
+  }
+
+  function api(req, res, path) {
+    if (!authed(req)) return res.writeHead(401, { 'Cache-Control': 'no-store' }).end()
+    const q = new URL('http://x' + req.url).searchParams
+    const opts = {
+      days: Math.max(0, Math.min(3650, Number(q.get('days') ?? 7) || 0)),
+      repo: (q.get('repo') ?? '').slice(0, 200),
+      tz: Math.max(-840, Math.min(840, Number(q.get('tz')) || 0)),
+      now: now(),
+    }
+    if (path === '/api/sessions') return json(res, { serverNow: opts.now, index: store.list() })
+    if (path.startsWith('/api/sessions/')) {
+      let id
+      try {
+        id = decodeURIComponent(path.slice('/api/sessions/'.length))
+      } catch {
+        return res.writeHead(400).end()
+      }
+      const v = store.get(id)
+      return v ? json(res, { serverNow: opts.now, view: v }) : res.writeHead(404).end()
+    }
+    if (path === '/api/stats') return json(res, store.stats(opts))
+    if (path === '/api/export.csv') {
+      const { from } = store.stats({ ...opts }).range
+      const rs = store.rows().filter(r => (r.start || r.end) >= from && (!opts.repo || r.repo === opts.repo))
+      return res
+        .writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="wf-defter.csv"', ...SEC })
+        .end(csvOf(rs))
+    }
+    res.writeHead(404).end()
   }
 
   const server = http.createServer(async (req, res) => {
@@ -255,6 +261,7 @@ export function createServer({ token, viewToken, publicDir = fileURLToPath(new U
       }
       if (route === 'GET /api/me') return res.writeHead(authed(req) ? 204 : 401, { 'Cache-Control': 'no-store' }).end()
       if (route === 'GET /events') return events(req, res)
+      if (req.method === 'GET' && path.startsWith('/api/')) return api(req, res, path)
       if (req.method === 'GET') {
         const name = path === '/' ? '/index.html' : path === '/login' ? '/login.html' : path
         const file = files.get(name)
@@ -276,9 +283,14 @@ export function createServer({ token, viewToken, publicDir = fileURLToPath(new U
   const timers = [
     setInterval(() => { for (const res of clients) write(res, ': ping\n\n') }, 25000),
     setInterval(sweep, 60000),
+    setInterval(() => store.flush(), 2000),
   ]
   for (const t of timers) t.unref()
-  server.on('close', () => timers.forEach(clearInterval))
+  server.on('close', () => {
+    timers.forEach(clearInterval)
+    store.flush()
+  })
+  server.store = store
   return server
 }
 
@@ -289,11 +301,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       token: process.env.WF_MONITOR_TOKEN,
       viewToken: process.env.WF_VIEW_TOKEN || undefined,
       publicDir: process.env.WF_PUBLIC_DIR || undefined,
+      dataDir: process.env.WF_DATA_DIR || fileURLToPath(new URL('./data/', import.meta.url)),
+      prices: process.env.WF_PRICING_FILE ? { ...PRICES, ...JSON.parse(readFileSync(process.env.WF_PRICING_FILE, 'utf8')) } : PRICES,
     })
   } catch (e) {
     console.error(e.message)
     process.exit(1)
   }
   const port = Number(process.env.PORT || 3000)
-  server.listen(port, () => console.log(`wf-dashboard :${port}`))
+  server.listen(port, () => console.log(`wf-dashboard :${port} · ${server.store.size()} kayıtlı session`))
+  // deploy/restart: SIGTERM'de defteri diske yaz
+  for (const sig of ['SIGTERM', 'SIGINT'])
+    process.on(sig, () => {
+      server.store.flush()
+      process.exit(0)
+    })
 }
