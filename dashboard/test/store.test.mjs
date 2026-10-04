@@ -47,3 +47,7 @@ test('analiz: gün sınırı saat dilimine göre, tümü aralığı ilk kayda ka
   assert.equal(st.totals.cost, 3)
   assert.equal(st.heat.length, 84)
 })
+
+test('sınıflandırma: belirsiz etiketlerde doküman ağır basar', () => {
+  assert.equal(classify({ label: 'Write deploy notes for volume', hint: 'Write a short README section about the /app/data volume' }), 'docs')
+})

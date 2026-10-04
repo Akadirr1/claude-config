@@ -48,7 +48,7 @@ export const CLASSES = [
     key: 'docs', name: 'Doküman', letter: 'M', shape: 'doc',
     hint: 'Doküman, rapor, özet',
     types: [/doc/i, /writer/i],
-    words: [/\bdocs?\b/, /doküman/, /readme/, /changelog/, /rapor/, /report/, /özet/, /summar/, /write-?up/, /yazı/, /guide/, /rehber/, /sentez/, /synthes/],
+    words: [/\bdocs?\b/, /\bnotes?\b/, /\bnot(lar|u)?\b/, /doküman/, /readme/, /changelog/, /rapor/, /report/, /özet/, /summar/, /write-?up/, /yazı/, /guide/, /rehber/, /sentez/, /synthes/],
   },
   {
     key: 'ops', name: 'Operasyon', letter: 'O', shape: 'gear',

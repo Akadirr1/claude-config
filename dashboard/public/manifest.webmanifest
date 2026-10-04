@@ -1,0 +1,10 @@
+{
+  "name": "wf · akış",
+  "short_name": "wf·akış",
+  "description": "Agentic işin canlı orkestrası, maliyet ve geçmiş",
+  "start_url": "/#canli",
+  "display": "standalone",
+  "background_color": "#12110f",
+  "theme_color": "#12110f",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
