@@ -17,6 +17,7 @@ Veriyi `mods/wf-monitor` mod'u gönderir (sözleşme v3).
 | `WF_VIEW_TOKEN` | hayır | Panele giriş için ayrı token. Tanımlıysa cloud ortamındaki push token'ı panele giremez. |
 | `WF_DATA_DIR` | hayır | Defter klasörü (Docker'da `/app/data`). |
 | `WF_PRICING_FILE` | hayır | Model fiyatlarını ezen JSON: `{"claude-opus-5-5": {"in": 4, "out": 20, "cw": 5, "cr": 0.2}}` (milyon token başına USD). |
+| `WF_PUBLIC_URL` | hayır | Panelin dış adresi (`https://wf.ornek.com`). Otomasyon bildirimleri panele bağlantı taşır. |
 
 Cloud ortamında (setup script'i `install.sh` çalıştıran) `WF_MONITOR_URL=https://<alan>/api/push` ve
 `WF_MONITOR_TOKEN` tanımlı olmalı; mod onlarla push eder.
@@ -29,8 +30,17 @@ Cloud ortamında (setup script'i `install.sh` çalıştıran) `WF_MONITOR_URL=ht
 - **Maliyet:** aralık ve repo filtresi; günlük maliyet (sınıflara göre), sınıf/model/repo kırılımı,
   graphify etkisi (grafı kullanan vs dosya tarayan agent'ların ortalama giriş tokeni ve maliyeti),
   en pahalı agent'lar, workflow başına maliyet, 12 haftalık ritim, CSV defter.
+- **Canlı → Eserler:** session'ın açtığı PR'lar, commit'ler ve değişen dosyalar; her birinin yanında onu üreten agent.
 - **Geçmiş:** bütün session'lar; sıralama, arama, sınıf karışımı şeridi.
-- Komut paleti (`Ctrl/⌘+K` ya da `/`), bildirimler (🔔; iOS'ta ana ekrana ekleyince), açık/koyu tema.
+- **Evren:** bütün defter tek gökyüzünde. Her session bir yıldız (merkez en eski, dış kollar en yeni;
+  büyüklük maliyet, renk en çok harcayan sınıf), aynı repo'nun session'ları takımyıldız çizgisiyle bağlı.
+- **Otomasyon:** "şu olunca → şunu yap" kuralları sunucuda çalışır, panel kapalıyken de. Tetikleyiciler: workflow
+  bitti/başarısız, agent hata verdi, PR açıldı, session/günlük maliyet eşiği, bütçenin %50/80/100'ü, agent N dk
+  sessiz, workflow N dk'yı geçti. Kanallar: JSON webhook, Slack, Discord, ntfy (telefona push; `https://ntfy.sh/<gizli-konu>`).
+  Günlük/aylık bütçe, ay sonu tahmini, her sabah dünün özeti, teslim günlüğü. Yalnız `https` ve dış adreslere gönderir.
+- Komut paleti (`Ctrl/⌘+K` ya da `/`): görünümler, session/agent arama, 6 tema (Obsidyen, Parşömen, Kehribar CRT,
+  Orman, Gül, Yüksek kontrast), **TV modu** (başlık gizlenir; canlı session'lar, Evren ve Maliyet 30 sn'de bir döner),
+  **ses** (olaylar sınıfına göre notaya dönüşür). Bildirimler (🔔; iOS'ta ana ekrana ekleyince).
 
 Agent sınıfları (`public/classes.js`) Claude'un serbestçe verdiği label, phase, agent tipi ve prompt'un
 başından puanlanır; Claude'un agent seçimi kısıtlanmaz. Maliyetler API liste fiyatıyla karşılıktır
