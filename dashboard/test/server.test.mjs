@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from '../server.mjs'
 
-const TOKEN = 'test-token-0123456789abcdef'
+const TOKEN = 'test-token-0123456789abcdef-0123456'
 let dir
 
 before(() => {
@@ -29,8 +29,8 @@ async function start(t, opts = {}) {
     body: new URLSearchParams({ token }).toString(),
   })
   const cookie = async () => (await login(TOKEN, 'cookie-ip')).headers.get('set-cookie').split(';')[0]
-  const push = (body, auth = `Bearer ${TOKEN}`) => req('/api/push', {
-    method: 'POST', headers: { Authorization: auth, 'Content-Type': 'application/json' },
+  const push = (body, auth = `Bearer ${TOKEN}`, headers = {}) => req('/api/push', {
+    method: 'POST', headers: { Authorization: auth, 'Content-Type': 'application/json', ...headers },
     body: typeof body === 'string' ? body : JSON.stringify(body),
   })
   return { server, clock, base, req, login, cookie, push }
@@ -126,7 +126,7 @@ test('kurcalanmış imza, farklı token ve süresi geçmiş cookie reddedilir', 
   assert.equal(await me('wf_session=' + TOKEN), 401)
   assert.equal(await me(''), 401)
 
-  const other = await start(t, { token: 'baska-token-0123456789abcdef' })
+  const other = await start(t, { token: 'baska-token-0123456789abcdef-0123456' })
   assert.equal((await other.req('/api/me', { headers: { Cookie: c } })).status, 401)
 
   s.clock.t += 31 * 24 * 3600 * 1000
@@ -262,4 +262,122 @@ test('SSE: data satırına enjeksiyon yapılamaz', async t => {
   assert.equal(ev.data.length, 1)
   assert.equal(ev.raw.split('\n').length, 2, 'event + tek data satırı')
   assert.equal(JSON.parse(ev.data[0].slice(6)).session.runs[0].agents[0].label, label)
+})
+
+const data = ev => JSON.parse(ev.data[0].slice(6))
+
+test('push: yanlış Bearer IP başına sayılır, kilitliyken 429 ve login de kilitli', async t => {
+  const s = await start(t)
+  const ip = { 'CF-Connecting-IP': '4.4.4.4' }
+  for (let i = 0; i < 5; i++) assert.equal((await s.push(body([]), 'Bearer yanlis', ip)).status, 401)
+  const locked = await s.push(body([]), undefined, ip)
+  assert.equal(locked.status, 429)
+  assert.ok(Number(locked.headers.get('retry-after')) > 0)
+  assert.equal((await s.login(TOKEN, '4.4.4.4')).headers.get('location'), '/login?e=rate', 'aynı tablo')
+  assert.equal((await s.push(body([]), undefined, { 'CF-Connecting-IP': '5.5.5.5' })).status, 204)
+  s.clock.t += 15 * 60 * 1000 + 1
+  assert.equal((await s.push(body([]), undefined, ip)).status, 204, 'pencere bitince açılır')
+})
+
+test('viewToken: giriş viewToken ile, push token ile', async t => {
+  const VIEW = 'view-token-0123456789abcdef-0123456'
+  const s = await start(t, { viewToken: VIEW })
+  assert.equal((await s.login(TOKEN)).headers.get('location'), '/login?e=bad', 'push token girişte geçmez')
+  const ok = await s.login(VIEW)
+  assert.equal(ok.headers.get('location'), '/')
+  assert.equal((await s.req('/api/me', { headers: { Cookie: ok.headers.get('set-cookie').split(';')[0] } })).status, 204)
+  assert.equal((await s.push(body([]))).status, 204, 'push token Bearer\'da çalışır')
+  assert.equal((await s.push(body([]), `Bearer ${VIEW}`)).status, 401, 'view token push\'ta geçmez')
+})
+
+test('token uzunluğu: <16 hata, <32 uyarı', t => {
+  const warn = t.mock.method(console, 'warn', () => {})
+  assert.throws(() => createServer({ token: 'kisa', publicDir: dir }), /WF_MONITOR_TOKEN/)
+  assert.throws(() => createServer({ token: TOKEN, viewToken: 'kisa', publicDir: dir }), /WF_VIEW_TOKEN/)
+  createServer({ token: TOKEN, publicDir: dir })
+  assert.equal(warn.mock.callCount(), 0)
+  createServer({ token: '0123456789abcdef', viewToken: '0123456789abcdefg', publicDir: dir })
+  assert.equal(warn.mock.callCount(), 2)
+})
+
+test('push: stringify edilemeyen (derin iç içe) gövde 400 ve kaydedilmez', async t => {
+  const s = await start(t)
+  const n = 120000
+  const res = await s.push('{"v":2,"session":{"id":"d"},"runs":[{"taskId":"a","x":' + '['.repeat(n) + ']'.repeat(n) + '}]}')
+  assert.equal(res.status, 400)
+  const es = sse(s.base, await s.cookie())
+  t.after(es.close)
+  assert.equal(data(await es.next()).sessions.length, 0)
+})
+
+test('push: en fazla 50 session, en eskisi atılır ve remove yayınlanır', async t => {
+  const s = await start(t)
+  for (let i = 0; i < 50; i++) {
+    s.clock.t++
+    await s.push(body([], { session: { id: 'id' + i, repo: 'r' } }))
+  }
+  const es = sse(s.base, await s.cookie())
+  t.after(es.close)
+  assert.equal(data(await es.next()).sessions.length, 50)
+  s.clock.t++
+  await s.push(body([], { session: { id: 'yeni', repo: 'r' } }))
+  const rm = await es.next()
+  assert.equal(rm.event, 'remove')
+  assert.equal(data(rm).id, 'id0')
+  assert.equal(data(await es.next()).session.id, 'yeni')
+})
+
+test('push: bayat sentAt 204 ama yok sayılır', async t => {
+  const s = await start(t)
+  const es = sse(s.base, await s.cookie())
+  t.after(es.close)
+  await es.next()
+  await s.push(body([run('a', 1)], { sentAt: 2000 }))
+  assert.equal(data(await es.next()).session.sentAt, 2000)
+  assert.equal((await s.push(body([run('eski', 2)], { sentAt: 1500 }))).status, 204)
+  await s.push(body([run('b', 3)], { sentAt: 2000 }))
+  const { session } = data(await es.next())
+  assert.deepEqual(session.runs.map(r => r.taskId), ['a', 'b'], 'bayat push yayınlanmadı ve kaydedilmedi')
+})
+
+test('CSRF: login/logout çapraz site 403, push etkilenmez', async t => {
+  const s = await start(t)
+  const host = new URL(s.base).host
+  const post = (path, headers) => s.req(path, {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...headers },
+    body: new URLSearchParams({ token: TOKEN }).toString(),
+  })
+  for (const path of ['/login', '/logout']) {
+    assert.equal((await post(path, { 'Sec-Fetch-Site': 'cross-site' })).status, 403, path)
+    assert.equal((await post(path, { 'Sec-Fetch-Site': 'same-site' })).status, 403, path)
+    assert.equal((await post(path, { 'Sec-Fetch-Site': 'same-origin', Origin: 'https://kotu.example' })).status, 303, path)
+    assert.equal((await post(path, { Origin: 'https://kotu.example' })).status, 403, path)
+    assert.equal((await post(path, { Origin: 'null' })).status, 403, path)
+    assert.equal((await post(path, { Origin: `http://${host}` })).status, 303, path)
+    assert.equal((await post(path, {})).status, 303, path + ' başlıksız (curl)')
+  }
+  assert.equal((await s.push(body([]), undefined, { Origin: 'https://kotu.example', 'Sec-Fetch-Site': 'cross-site' })).status, 204)
+})
+
+test('login ve logout eski wfk cookie\'sini siler', async t => {
+  const s = await start(t)
+  for (const res of [await s.login(TOKEN), await s.req('/logout', { method: 'POST' })]) {
+    assert.ok(res.headers.getSetCookie().includes('wfk=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict'))
+  }
+  assert.ok(!(await s.login('yanlis-token-0123456789')).headers.getSetCookie().length)
+})
+
+test('SSE: okumayan istemci tampon 1 MB\'ı aşınca koparılır', async t => {
+  const s = await start(t)
+  const c = await s.cookie()
+  const res = await new Promise((resolve, reject) => http.get(s.base + '/events', { headers: { Cookie: c } }, resolve).on('error', reject))
+  res.pause()
+  t.after(() => res.destroy())
+  const closed = new Promise(r => res.on('close', r))
+  const big = 'x'.repeat(200 * 1024)
+  for (let i = 0; i < 100; i++) await s.push(body([run('a', 1, { big })]))
+  res.resume()
+  await closed
+  // Kopan istemci kümeden çıktı: sonraki yayın hata vermez
+  assert.equal((await s.push(body([run('b', 2)]))).status, 204)
 })

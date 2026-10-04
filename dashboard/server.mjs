@@ -1,5 +1,6 @@
 // wf-dashboard: wf-monitor mod'unun cloud session'lardan gönderdiği durumu canlı gösterir.
-// Bağımlılık yok. Ortam: WF_MONITOR_TOKEN (zorunlu, ≥16), PORT (3000), WF_PUBLIC_DIR (./public).
+// Bağımlılık yok. Ortam: WF_MONITOR_TOKEN (zorunlu, ≥16; /api/push), WF_VIEW_TOKEN (opsiyonel, ≥16; giriş formu,
+// yoksa WF_MONITOR_TOKEN), PORT (3000), WF_PUBLIC_DIR (./public).
 import http from 'node:http'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, extname } from 'node:path'
@@ -14,6 +15,9 @@ const SESSION_MS = 30 * 24 * 3600 * 1000
 const RATE_WINDOW = 15 * 60 * 1000
 const RATE_MAX = 5
 const RATE_TABLE_MAX = 10000
+const MAX_SESSIONS = 50
+const MAX_BUFFERED = 1024 * 1024
+const CLEAR_OLD = 'wfk=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict'
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -65,11 +69,31 @@ function loadStatic(dir) {
   return files
 }
 
-export function createServer({ token, publicDir = fileURLToPath(new URL('./public/', import.meta.url)), now = Date.now }) {
-  if (!token || token.length < 16) throw new Error('WF_MONITOR_TOKEN en az 16 karakter olmalı')
+const ipOf = req => String(req.headers['cf-connecting-ip'] || req.socket.remoteAddress || '')
+
+// Tarayıcıdan gelen çapraz site POST'u: Sec-Fetch-Site, yoksa Origin/Host. İkisi de yoksa (curl) izin.
+function crossSite(req) {
+  const site = req.headers['sec-fetch-site']
+  if (site) return site !== 'same-origin'
+  const origin = req.headers.origin
+  if (!origin) return false
+  try {
+    return new URL(origin).host !== req.headers.host
+  } catch {
+    return true
+  }
+}
+
+export function createServer({ token, viewToken, publicDir = fileURLToPath(new URL('./public/', import.meta.url)), now = Date.now }) {
+  for (const [name, v] of [['WF_MONITOR_TOKEN', token], ['WF_VIEW_TOKEN', viewToken]]) {
+    if (name === 'WF_VIEW_TOKEN' && v === undefined) continue
+    if (!v || v.length < 16) throw new Error(`${name} en az 16 karakter olmalı`)
+    if (v.length < 32) console.warn(`uyarı: ${name} 32 karakterden kısa`)
+  }
+  const view = viewToken ?? token
   const files = loadStatic(publicDir)
-  const key = createHmac('sha256', token).update('wf-session-key').digest()
-  const sessions = new Map() // id -> { id, repo, receivedAt, sentAt, runs }
+  const key = createHmac('sha256', view).update('wf-session-key').digest()
+  const sessions = new Map() // id -> { s: Session, json: JSON.stringify(s), sent: body.sentAt | undefined }
   const clients = new Set()
   const failures = new Map() // ip -> { count, resetAt }
 
@@ -83,20 +107,25 @@ export function createServer({ token, publicDir = fileURLToPath(new URL('./publi
     return issuedAt <= t && t - issuedAt < SESSION_MS && same(m[2], sign(issuedAt))
   }
 
-  function send(res, event, obj) {
-    // JSON.stringify \n ve \r'yi kaçışlar; tek data satırı garanti.
-    res.write(`event: ${event}\ndata: ${JSON.stringify(obj)}\n\n`)
+  // Okumayan istemcinin tamponu MAX_BUFFERED'ı aşarsa bağlantıyı kopar (bellek şişmesin).
+  function write(res, chunk) {
+    if (res.writableLength <= MAX_BUFFERED) res.write(chunk)
+    if (res.writableLength > MAX_BUFFERED) {
+      clients.delete(res)
+      res.destroy()
+    }
   }
-  const broadcast = (event, obj) => { for (const res of clients) send(res, event, obj) }
+  // data: JSON metni; JSON.stringify \n ve \r'yi kaçışlar, tek data satırı garanti.
+  const send = (res, event, data) => write(res, `event: ${event}\ndata: ${data}\n\n`)
+  const broadcast = (event, data) => { for (const res of clients) send(res, event, data) }
+  const remove = (id, t) => {
+    sessions.delete(id)
+    broadcast('remove', JSON.stringify({ serverNow: t, id }))
+  }
 
   function sweep() {
     const t = now()
-    for (const [id, s] of sessions) {
-      if (s.receivedAt < t - TTL_MS) {
-        sessions.delete(id)
-        broadcast('remove', { serverNow: t, id })
-      }
-    }
+    for (const [id, e] of sessions) if (e.s.receivedAt < t - TTL_MS) remove(id, t)
     for (const [ip, f] of failures) if (f.resetAt <= t) failures.delete(ip)
   }
 
@@ -104,26 +133,15 @@ export function createServer({ token, publicDir = fileURLToPath(new URL('./publi
     res.writeHead(303, { Location: location, 'Cache-Control': 'no-store', ...extra }).end()
   }
 
-  async function login(req, res) {
-    const ip = String(req.headers['cf-connecting-ip'] || req.socket.remoteAddress || '')
-    const body = await readBody(req, MAX_LOGIN)
-    if (body === null) return res.writeHead(413).end()
-    const t = now()
+  // Hız sınırı (login ve push ortak): kilitliyse kalan saniye, değilse 0.
+  function lockedFor(ip, t) {
+    const f = failures.get(ip)
+    if (f && f.resetAt <= t) failures.delete(ip)
+    else if (f && f.count >= RATE_MAX) return Math.ceil((f.resetAt - t) / 1000)
+    return 0
+  }
+  function fail(ip, t) {
     let f = failures.get(ip)
-    if (f && f.resetAt <= t) {
-      failures.delete(ip)
-      f = undefined
-    }
-    if (f && f.count >= RATE_MAX) {
-      return redirect(res, '/login?e=rate', { 'Retry-After': String(Math.ceil((f.resetAt - t) / 1000)) })
-    }
-    if (same(new URLSearchParams(body).get('token') || '', token)) {
-      failures.delete(ip)
-      const issuedAt = t
-      return redirect(res, '/', {
-        'Set-Cookie': `wf_session=${issuedAt}.${sign(issuedAt)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=2592000`,
-      })
-    }
     if (!f) {
       if (failures.size >= RATE_TABLE_MAX) sweep()
       // ponytail: tablo doluysa en eski girdiyi at; çok sayıda sahte IP ile sayaç silinebilir, token ≥16 kr olduğundan kabul.
@@ -132,11 +150,35 @@ export function createServer({ token, publicDir = fileURLToPath(new URL('./publi
       failures.set(ip, f)
     }
     f.count++
+  }
+
+  async function login(req, res) {
+    const ip = ipOf(req)
+    const body = await readBody(req, MAX_LOGIN)
+    if (body === null) return res.writeHead(413).end()
+    const t = now()
+    const wait = lockedFor(ip, t)
+    if (wait) return redirect(res, '/login?e=rate', { 'Retry-After': String(wait) })
+    if (same(new URLSearchParams(body).get('token') || '', view)) {
+      failures.delete(ip)
+      const issuedAt = t
+      return redirect(res, '/', {
+        'Set-Cookie': [`wf_session=${issuedAt}.${sign(issuedAt)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=2592000`, CLEAR_OLD],
+      })
+    }
+    fail(ip, t)
     redirect(res, '/login?e=bad')
   }
 
   async function push(req, res) {
-    if (!same(req.headers.authorization || '', `Bearer ${token}`)) return res.writeHead(401).end()
+    const ip = ipOf(req)
+    const t = now()
+    const wait = lockedFor(ip, t)
+    if (wait) return res.writeHead(429, { 'Retry-After': String(wait) }).end()
+    if (!same(req.headers.authorization || '', `Bearer ${token}`)) {
+      fail(ip, t)
+      return res.writeHead(401).end()
+    }
     const raw = await readBody(req, MAX_PUSH)
     if (raw === null) return res.writeHead(413).end()
     let body
@@ -151,19 +193,34 @@ export function createServer({ token, publicDir = fileURLToPath(new URL('./publi
         !runs.every(r => r && typeof r === 'object' && typeof r.taskId === 'string' && r.taskId)) {
       return res.writeHead(400).end()
     }
+    const prev = sessions.get(id)
+    const sent = Number.isFinite(body.sentAt) ? body.sentAt : undefined
+    // Bayat (sırası karışmış) push: kabul et ama yok say.
+    if (sent !== undefined && prev?.sent !== undefined && sent < prev.sent) return res.writeHead(204).end()
     const receivedAt = now()
-    const merged = new Map((sessions.get(id)?.runs || []).map(r => [r.taskId, r]))
+    const merged = new Map((prev?.s.runs || []).map(r => [r.taskId, r]))
     for (const r of runs) merged.set(r.taskId, r)
     const start = r => (Number.isFinite(r.startedAt) ? r.startedAt : 0)
     const session = {
       id,
       repo: String(body.session.repo ?? ''),
       receivedAt,
-      sentAt: Number.isFinite(body.sentAt) ? body.sentAt : receivedAt,
+      sentAt: sent ?? receivedAt,
       runs: [...merged.values()].sort((a, b) => start(a) - start(b)).slice(-MAX_RUNS),
     }
-    sessions.set(id, session)
-    broadcast('session', { serverNow: receivedAt, session })
+    let json
+    try {
+      json = JSON.stringify(session)
+    } catch {
+      return res.writeHead(400).end() // derin iç içe vb. (RangeError)
+    }
+    sessions.set(id, { s: session, json, sent })
+    if (sessions.size > MAX_SESSIONS) {
+      let oldest
+      for (const [k, e] of sessions) if (!oldest || e.s.receivedAt < sessions.get(oldest).s.receivedAt) oldest = k
+      remove(oldest, receivedAt)
+    }
+    broadcast('session', `{"serverNow":${receivedAt},"session":${json}}`)
     res.writeHead(204).end()
   }
 
@@ -176,9 +233,9 @@ export function createServer({ token, publicDir = fileURLToPath(new URL('./publi
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     })
-    const list = [...sessions.values()].sort((a, b) => b.receivedAt - a.receivedAt)
-    send(res, 'snapshot', { serverNow: now(), sessions: list })
+    const list = [...sessions.values()].sort((a, b) => b.s.receivedAt - a.s.receivedAt).map(e => e.json)
     clients.add(res)
+    send(res, 'snapshot', `{"serverNow":${now()},"sessions":[${list.join(',')}]}`)
     req.on('close', () => clients.delete(res))
   }
 
@@ -189,9 +246,10 @@ export function createServer({ token, publicDir = fileURLToPath(new URL('./publi
       const route = `${req.method} ${path}`
       if (route === 'GET /healthz') return res.writeHead(200, { 'Content-Type': 'text/plain' }).end('ok')
       if (route === 'POST /api/push') return await push(req, res)
+      if ((route === 'POST /login' || route === 'POST /logout') && crossSite(req)) return res.writeHead(403).end()
       if (route === 'POST /login') return await login(req, res)
       if (route === 'POST /logout') {
-        return redirect(res, '/login', { 'Set-Cookie': 'wf_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0' })
+        return redirect(res, '/login', { 'Set-Cookie': ['wf_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0', CLEAR_OLD] })
       }
       if (route === 'GET /api/me') return res.writeHead(authed(req) ? 204 : 401, { 'Cache-Control': 'no-store' }).end()
       if (route === 'GET /events') return events(req, res)
@@ -214,7 +272,7 @@ export function createServer({ token, publicDir = fileURLToPath(new URL('./publi
 
   // Bağlantıyı tünel/proxy zaman aşımına karşı canlı tut; eski session'ları ve hız sınırı kayıtlarını at
   const timers = [
-    setInterval(() => { for (const res of clients) res.write(': ping\n\n') }, 25000),
+    setInterval(() => { for (const res of clients) write(res, ': ping\n\n') }, 25000),
     setInterval(sweep, 60000),
   ]
   for (const t of timers) t.unref()
@@ -225,7 +283,11 @@ export function createServer({ token, publicDir = fileURLToPath(new URL('./publi
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   let server
   try {
-    server = createServer({ token: process.env.WF_MONITOR_TOKEN, publicDir: process.env.WF_PUBLIC_DIR || undefined })
+    server = createServer({
+      token: process.env.WF_MONITOR_TOKEN,
+      viewToken: process.env.WF_VIEW_TOKEN || undefined,
+      publicDir: process.env.WF_PUBLIC_DIR || undefined,
+    })
   } catch (e) {
     console.error(e.message)
     process.exit(1)
