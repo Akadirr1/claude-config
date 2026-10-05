@@ -1,6 +1,7 @@
 // wf-dashboard paneli: session'daki bütün agentic işi canlı gösterir — Şef (orkestratör), doğurduğu
 // agent'lar, workflow devirleri — ve kalıcı defterden maliyet/token analizi yapar.
 // Güvenlik: agent'lardan gelen her metin dışarıdan gelir; DOM yalnızca textContent ile kurulur (util.js).
+import { unit, setUnit, amtNum } from './util.js'
 import { $, h, hideTip, motion, fmtCost, fmtAgo, fmtShort, fmtTok, glyph, className, STATUS, RUN_STATUS, str, num, arr, pref, totalTok, clsKey } from './util.js'
 import { S, serverNow, setView, setSummary, applyPatch, pickDefault, loadSession, loadNorms, current, newestRun, allAgents, setEventSink } from './state.js'
 import { initLive, renderLive, live, openDetail, narrow } from './live.js'
@@ -96,11 +97,11 @@ function renderPickers() {
   const v = S.views.get(S.sid)
   const runs = v ? [...v.runs].sort((a, b) => b.startedAt - a.startedAt) : []
   const sig = JSON.stringify([S.pinned, S.sid, S.tid, list.map(x => [x.id, x.repo, x.live]), runs.map(r => [r.taskId, r.status])])
-  if (sig === selSig) return
-  selSig = sig
+  if ((sig + unit()) === selSig) return
+  selSig = sig + unit()
   const ss = $('sess'), rs = $('run')
   ss.replaceChildren(h('option', { value: '', text: 'otomatik (en yeni)' }),
-    ...list.map(x => h('option', { value: x.id, text: `${x.live ? '● ' : ''}${x.repo || 'repo?'} · ${fmtShort(x.receivedAt)} · ${fmtCost(x.totals.cost)}` })))
+    ...list.map(x => h('option', { value: x.id, text: `${x.live ? '● ' : ''}${x.repo || 'repo?'} · ${fmtShort(x.receivedAt)} · ${amtNum(x.totals.cost, totalTok(x.totals))}` })))
   rs.replaceChildren(...(runs.length ? runs.map(r => h('option', { value: r.taskId, text: `${r.name} · ${fmtShort(r.startedAt)} · ${STATUS[r.status].i} ${RUN_STATUS[r.status]}` })) : [h('option', { value: '', text: 'workflow yok' })]))
   ss.value = S.pinned ? S.sid ?? '' : ''
   rs.value = S.tid ?? ''
@@ -130,11 +131,24 @@ for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', e
 function renderHeader() {
   for (const b of document.querySelectorAll('.tab')) b.setAttribute('aria-current', ROUTES[b.dataset.r] === S.route ? 'page' : 'false')
   document.body.dataset.route = S.route
-  const liveCost = [...S.index.values()].filter(x => x.live).reduce((n, x) => n + x.totals.cost, 0)
-  const lives = [...S.index.values()].filter(x => x.live).length
-  $('ticker').textContent = lives ? `${lives} canlı · ${fmtCost(liveCost)}` : 'sakin'
+  const liveOnes = [...S.index.values()].filter(x => x.live)
+  const liveCost = liveOnes.reduce((n, x) => n + x.totals.cost, 0)
+  const liveTok = liveOnes.reduce((n, x) => n + totalTok(x.totals), 0)
+  const lives = liveOnes.length
+  $('ticker').textContent = lives ? `${lives} canlı · ${unit() === 'usd' ? fmtCost(liveCost) : fmtTok(liveTok) + ' tok'}` : 'sakin'
+  $('ticker').title = `çalışan session'ların toplamı: ${fmtTok(liveTok)} token · ${fmtCost(liveCost)}`
+  const ub = $('unit')
+  ub.textContent = unit() === 'usd' ? '$' : 'tok'
+  ub.setAttribute('aria-label', unit() === 'usd' ? 'Birim: dolar (token\'a geç)' : 'Birim: token (dolara geç)')
+  ub.title = ub.getAttribute('aria-label')
   $('ticker').dataset.live = lives ? 'on' : 'off'
 }
+
+function toggleUnit() {
+  setUnit(unit() === 'usd' ? 'tok' : 'usd')
+  render()
+}
+$('unit').addEventListener('click', toggleUnit)
 
 // ---------- bildirimler: run bitişi, hata, uyarı. Sayfa içi toast her zaman; tarayıcı bildirimi isteğe bağlı.
 let notifyOn = pref.get('notify', '0') === '1'
@@ -186,15 +200,16 @@ function palSearch() {
   const q = palIn.value.trim().toLocaleLowerCase('tr')
   const items = []
   const goView = r => ({ text: r[1], sub: 'görünüm', go: () => { location.hash = '#' + r[0] } })
-  for (const r of [['canli', 'Canlı'], ['maliyet', 'Maliyet'], ['gecmis', 'Geçmiş'], ['evren', 'Evren'], ['otomasyon', 'Otomasyon']]) items.push(goView(r))
+  for (const r of [['canli', 'Canlı'], ['maliyet', 'Token ve maliyet'], ['gecmis', 'Geçmiş'], ['evren', 'Evren'], ['otomasyon', 'Otomasyon']]) items.push(goView(r))
   items.push({ text: tv ? 'TV modundan çık' : 'TV modu (duvar ekranı, otomatik döner)', sub: 'komut', go: () => (tv ? tvStop() : tvStart()) })
+  items.push({ text: unit() === 'usd' ? 'Birimi token yap' : 'Birimi dolar yap', sub: 'komut', go: toggleUnit })
   items.push({ text: soundOn() ? 'Sesi kapat' : 'Sesi aç (olaylar sese dönüşür)', sub: 'komut', go: () => { setSound(!soundOn()); toast({ type: 'end', icon: soundOn() ? '♪' : '·', text: soundOn() ? 'Ses açık' : 'Ses kapalı' }) } })
   for (const [k, name] of THEMES) items.push({ text: `Tema: ${name}`, sub: 'komut', go: () => { setTheme(k, true); render() } })
   for (const x of [...S.index.values()].sort((a, b) => b.receivedAt - a.receivedAt))
-    items.push({ text: `${x.repo || 'session'} — ${x.title || x.id.slice(-8)}`, sub: `${fmtAgo(serverNow() - x.receivedAt)} · ${fmtCost(x.totals.cost)}`, go: () => openSession(x.id) })
+    items.push({ text: `${x.repo || 'session'} — ${x.title || x.id.slice(-8)}`, sub: `${fmtAgo(serverNow() - x.receivedAt)} · ${amtNum(x.totals.cost, totalTok(x.totals))}`, go: () => openSession(x.id) })
   for (const v of S.views.values()) {
     for (const r of v.runs) items.push({ text: `workflow ${r.name}`, sub: `${v.repo} · ${RUN_STATUS[r.status]}`, go: () => openSession(v.id).then(() => { S.tid = r.taskId; render() }) })
-    for (const a of allAgents(v)) if (!a.main) items.push({ cls: a.cls, text: a.label, sub: `${className(a.cls)} · ${v.repo} · ${fmtCost(a.tokens.cost)}`, go: () => openSession(v.id, a.id) })
+    for (const a of allAgents(v)) if (!a.main) items.push({ cls: a.cls, text: a.label, sub: `${className(a.cls)} · ${v.repo} · ${amtNum(a.tokens.cost, totalTok(a.tokens))}`, go: () => openSession(v.id, a.id) })
   }
   palItems = (q ? items.filter(x => `${x.text} ${x.sub}`.toLocaleLowerCase('tr').includes(q)) : items).slice(0, 40)
   palSel = Math.min(palSel, Math.max(0, palItems.length - 1))

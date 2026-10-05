@@ -2,11 +2,14 @@
 // run'ının akış grafiği (zaman yolculuğu ve kritik yol ile), oturum geneli zaman çubukları, olaylar, detay.
 import {
   $, h, s, put, motion, glyph, className, fmtDur, fmtClock, fmtShort, fmtOff, fmtAgo, fmtCost, fmtTok, fmtPct, model,
-  totalTok, statusText, STATUS, RUN_STATUS, MAIN_STATE, CLASS, CLASS_ORDER, arr, str,
+  unit, amt, amtNum, tokBar, tokTip, tokLegend, TOK_KINDS,
+  totalTok, statusText, STATUS, RUN_STATUS, MAIN_STATE, CLASS, CLASS_ORDER, arr, str, num,
 } from './util.js'
 import {
-  S, serverNow, modNow, current, findAgent, runOf, lastStepT, runEnd, sessionStart, isLive, seenOf, anomalies, warn,
+  S, serverNow, modNow, current, findAgent, runOf, lastStepT, runEnd, sessionStart, isLive, seenOf, anomalies, warn, allAgents,
 } from './state.js'
+
+const peakOf = a => a.series.reduce((m, p) => Math.max(m, p.c), 0)
 
 let api = { render() {}, openSession() {} }
 export const initLive = a => (api = a)
@@ -40,7 +43,8 @@ function runMetrics(run, v) {
   const busy = run.agents.reduce((sum, a) => sum + Math.max(0, endOf(a, v) - a.startedAt), 0)
   const wall = Math.max(1, (run.replayT ?? runEnd(run, v)) - run.startedAt)
   const cost = run.agents.reduce((sum, a) => sum + a.tokens.cost, 0)
-  return { crit, par: busy / wall, cost }
+  const tok = run.agents.reduce((sum, a) => sum + totalTok(a.tokens), 0)
+  return { crit, par: busy / wall, cost, tok }
 }
 
 // ---------- oturum çubuğu
@@ -48,8 +52,9 @@ function burn(v) {
   const xs = S.samples.get(v.id) ?? []
   const now = xs.at(-1)?.t ?? 0
   const old = xs.find(x => now - x.t <= 10 * 60e3) ?? xs[0]
-  const rate = old && now > old.t ? ((xs.at(-1).cost - old.cost) / (now - old.t)) * 3600e3 : 0
-  return { rate, xs: xs.slice(-40) }
+  const k = unit() === 'usd' ? 'cost' : 'tok'
+  const rate = old && now > old.t ? (((xs.at(-1)[k] ?? 0) - (old[k] ?? 0)) / (now - old.t)) * 3600e3 : 0
+  return { rate, xs: xs.slice(-40).map(x => ({ t: x.t, cost: x[k] ?? 0 })) }
 }
 function sparkline(xs) {
   if (xs.length < 2) return s('svg', { class: 'spark', viewBox: '0 0 80 22', width: 80, height: 22, 'aria-hidden': 'true' })
@@ -70,7 +75,7 @@ function renderSessbar(v) {
   live.push(() => {
     dur.textContent = fmtDur(sessEnd(v) - sessionStart(v))
     const b = burn(v)
-    rate.textContent = isLive(v) && b.rate > 0 ? `${fmtCost(b.rate)}/sa` : '—'
+    rate.textContent = isLive(v) && b.rate > 0 ? `${unit() === 'usd' ? fmtCost(b.rate) : fmtTok(b.rate)}/sa` : '—'
     spark.replaceChildren(sparkline(b.xs))
   })
   const hit = t.in + t.cr + t.cw ? t.cr / (t.in + t.cr + t.cw) : 0
@@ -83,12 +88,15 @@ function renderSessbar(v) {
     h('span', { class: `chip run-st ${liveNow ? 's-running' : 's-done'}`, text: liveNow ? '● canlı' : '✓ sakin' }),
     h('div', { class: 'stats' },
       stat('süre', dur),
-      stat('maliyet', h('b', { class: 'num cost', text: fmtCost(t.cost) }), 'API liste fiyatıyla karşılığı (abonelik faturası farklıdır)'),
-      stat('token', fmtTok(t.in + t.out + t.cr + t.cw), `giriş ${fmtTok(t.in)} · çıkış ${fmtTok(t.out)} · cache okuma ${fmtTok(t.cr)} · cache yazma ${fmtTok(t.cw)}`),
+      stat('token', h('span', { class: 'tok-stat' }, h('b', { class: 'num cost', text: fmtTok(totalTok(t)) }), tokBar(t)), tokTip(t)),
+      stat('giriş', fmtTok(t.in), 'cache dışı giriş tokeni'),
+      stat('çıkış', fmtTok(t.out)),
+      stat('zirve bağlam', fmtTok(Math.max(0, ...allAgents(v).map(peakOf))), 'bir agent\'ın tek istekte ulaştığı en büyük bağlam (giriş + cache)'),
+      stat('$', fmtCost(t.cost), 'API liste fiyatıyla karşılığı (abonelik faturası farklıdır)'),
       stat('cache', fmtPct(hit), 'cache okumanın toplam girişe oranı: yüksek = ucuz'),
       stat('graf-önce', fmtPct(graphRatio), 'graphify çağrılarının (graphify + dosya tarama) içindeki payı: yüksek = codebase baştan okunmuyor'),
       stat('agent', String(t.agents)),
-      stat('yanma', h('span', { class: 'burn' }, rate, spark), 'son 10 dakikanın maliyet hızı')))
+      stat('yanma', h('span', { class: 'burn' }, rate, spark), `son 10 dakikanın ${unit() === 'usd' ? 'maliyet' : 'token'} hızı`)))
 }
 
 // ---------- Şef kartı
@@ -133,8 +141,8 @@ function renderOrch(v) {
       m.goal ? h('span', { class: 'chef-goal', text: m.goal }) : null,
       m.answer ? h('span', { class: 'chef-ans', text: m.answer }) : null,
       h('span', { class: 'chef-nums' },
-        stat('token', fmtTok(totalTok(m.tokens))),
-        stat('maliyet', fmtCost(m.tokens.cost)),
+        stat('token', fmtTok(totalTok(m.tokens)), tokTip(m.tokens)),
+        stat('$', fmtCost(m.tokens.cost)),
         stat('araç', String(Object.values(m.tools).reduce((a, b) => a + b, 0))),
         stat('alt agent', String(v.subs.length + v.runs.reduce((n, r) => n + r.agents.length, 0))))),
     graphMeter(m.graph),
@@ -212,34 +220,93 @@ const clip = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t)
 function subSat(v, a, x, y) {
   const bad = anomalies(a, v).length
   const g = s('g', { class: `c-sat c-${a.cls} s-${a.status}${S.agentId === a.id ? ' sel' : ''}`, transform: `translate(${x},${y})`, role: 'button', tabindex: '0', 'data-k': `c${a.id}`,
-    'aria-label': `${a.label}, ${className(a.cls)}, ${STATUS[a.status].t}`, tip: `${a.label} · ${className(a.cls)} · ${fmtCost(a.tokens.cost)} · ${fmtTok(totalTok(a.tokens))} token` },
+    'aria-label': `${a.label}, ${className(a.cls)}, ${STATUS[a.status].t}`, tip: `${a.label} · ${className(a.cls)} · ${fmtTok(totalTok(a.tokens))} token (${tokTip(a.tokens)})` },
   a.status === 'running' ? s('circle', { r: 19, class: 'c-pulse' }) : null,
   s('circle', { r: 16, class: 'c-bg' }),
   nest(glyph(a.cls, 22), -11, -11),
   bad ? s('text', { x: 14, y: -12, class: 'c-warn', text: '⚠' }) : null,
   a.status === 'failed' ? s('text', { x: 14, y: -12, class: 'c-fail', text: '✕' }) : null,
   s('text', { y: 30, 'text-anchor': 'middle', class: 'c-lab', text: clip(a.label, 18) }),
-  s('text', { y: 42, 'text-anchor': 'middle', class: 'c-cost', text: fmtCost(a.tokens.cost) }))
+  s('text', { y: 42, 'text-anchor': 'middle', class: 'c-cost', text: amt(a.tokens) }))
   click(g, () => openDetail(a.id))
   return g
 }
 function runSat(v, r, x, y) {
   const cost = r.agents.reduce((n, a) => n + a.tokens.cost, 0)
+  const tok = r.agents.reduce((n, a) => n + totalTok(a.tokens), 0)
   const g = s('g', { class: `c-run s-${r.status}${S.tid === r.taskId ? ' sel' : ''}`, transform: `translate(${x},${y})`, role: 'button', tabindex: '0', 'data-k': `c${r.taskId}`,
-    'aria-label': `workflow ${r.name}, ${RUN_STATUS[r.status]}, ${r.agents.length} agent`, tip: `workflow ${r.name} · ${r.agents.length} agent · ${fmtCost(cost)}` },
+    'aria-label': `workflow ${r.name}, ${RUN_STATUS[r.status]}, ${r.agents.length} agent`, tip: `workflow ${r.name} · ${r.agents.length} agent · ${fmtTok(tok)} token · ${fmtCost(cost)}` },
   s('rect', { x: -46, y: -15, width: 92, height: 30, rx: 9, class: 'c-runbox' }),
   s('text', { x: -36, y: 5, class: 'c-run-i', text: r.status === 'running' ? '◆' : STATUS[r.status].i }),
   s('text', { x: -24, y: 4, class: 'c-run-t', text: clip(r.name, 10) }),
-  s('text', { y: 30, 'text-anchor': 'middle', class: 'c-cost', text: `${r.agents.length} agent · ${fmtCost(cost)}` }))
+  s('text', { y: 30, 'text-anchor': 'middle', class: 'c-cost', text: `${r.agents.length} agent · ${amtNum(cost, tok)}` }))
   click(g, () => { Object.assign(S, { tid: r.taskId, pinned: true, replay: null }); api.render(); $('graph-panel').scrollIntoView({ block: 'nearest', behavior: motion() ? 'smooth' : 'auto' }) })
   return g
 }
 
 // ---------- run akış grafiği: phase sütunları × tur satırları
+// ---------- run karşılaştırma: aynı workflow'un başka bir run'ıyla phase/agent bazında token farkı
+async function toggleCompare(run) {
+  if (S.cmp?.tid === run.taskId) {
+    S.cmp = null
+    return api.render()
+  }
+  S.cmp = { name: run.name, tid: run.taskId, runs: [], b: null, busy: true }
+  api.render()
+  try {
+    const r = await fetch(`/api/runs?name=${encodeURIComponent(run.name)}`, { credentials: 'same-origin', cache: 'no-store' })
+    const d = r.ok ? await r.json() : { runs: [] }
+    if (S.cmp?.tid !== run.taskId) return
+    S.cmp.runs = arr(d.runs).filter(x => x && typeof x === 'object' && str(x.runId))
+    S.cmp.b = S.cmp.runs.find(x => x.runId !== run.taskId)?.runId ?? null
+  } catch {}
+  if (S.cmp) S.cmp.busy = false
+  api.render()
+}
+const tk = x => (num(x?.in) ?? 0) + (num(x?.out) ?? 0) + (num(x?.cr) ?? 0) + (num(x?.cw) ?? 0)
+function renderCompare(run) {
+  const box = $('cmp')
+  const c = S.cmp
+  if (!run || c?.tid !== run.taskId) return void ((box.hidden = true), box.replaceChildren())
+  box.hidden = false
+  if (c.busy) return box.replaceChildren(h('p', { class: 'muted pad', text: 'run\'lar yükleniyor…' }))
+  const A = c.runs.find(x => x.runId === run.taskId)
+  const others = c.runs.filter(x => x.runId !== run.taskId)
+  if (!A || !others.length) return box.replaceChildren(h('p', { class: 'muted pad', text: `Defterde karşılaştırılacak başka ${run.name} run'ı yok.` }))
+  const B = others.find(x => x.runId === c.b) ?? others[0]
+  const key = a => `${str(a.phase)}|${str(a.label)}`
+  const keys = [...new Set([...arr(A.agents), ...arr(B.agents)].map(key))]
+  const am = new Map(arr(A.agents).map(a => [key(a), a])), bm = new Map(arr(B.agents).map(a => [key(a), a]))
+  const max = Math.max(1, ...keys.flatMap(k => [tk(am.get(k)), tk(bm.get(k))]))
+  const delta = (a, b) => (!a || !b ? null : b ? a / b - 1 : null)
+  const dCell = d => h('td', { class: `num strong ${d == null ? '' : d > 0.1 ? 'bad-t' : d < -0.1 ? 'ok-t' : ''}`, text: d == null ? '—' : `${d > 0 ? '+' : '−'}${Math.abs(Math.round(d * 100))}%` })
+  const bar = (x, cls) => h('span', { class: `cmp-bar ${cls}` }, h('i', { style: `width:${(tk(x) / max) * 100}%` }))
+  const pick = h('select', { 'aria-label': 'Karşılaştırılacak run', onchange: e => { c.b = e.target.value; api.render() } },
+    others.map(x => h('option', { value: x.runId, selected: x.runId === B.runId ? true : null, text: `${fmtShort(x.startedAt)} ${new Date(x.startedAt).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })} · ${str(x.repo)} · ${fmtTok(tk(x))}` })))
+  box.replaceChildren(
+    h('div', { class: 'cmp-head' }, h('h3', { text: 'Karşılaştırma' }), h('span', { class: 'muted small', text: 'A = bu run, B =' }), h('label', { class: 'pick small' }, pick)),
+    h('div', { class: 'tbl-w' }, h('table', { class: 'tbl cmp-t' },
+      h('thead', {}, h('tr', {}, ['agent', 'A', 'B', 'fark', 'cache isabeti A / B'].map(x => h('th', { scope: 'col', text: x })))),
+      h('tbody', {},
+        keys.map(k => {
+          const a = am.get(k), b = bm.get(k)
+          const x = a ?? b
+          const hit = y => (y && y.in + y.cr + y.cw ? fmtPct(y.cr / (y.in + y.cr + y.cw)) : '—')
+          return h('tr', {},
+            h('td', {}, h('span', { class: 'cell-a' }, glyph(x.cls, 14), h('span', { text: x.label })), h('span', { class: 'muted small', text: ` ${x.phase}` })),
+            h('td', { class: 'num', tip: a ? tokTip(a) : '' }, a ? fmtTok(tk(a)) : '—', bar(a, 'a')),
+            h('td', { class: 'num', tip: b ? tokTip(b) : '' }, b ? fmtTok(tk(b)) : '—', bar(b, 'b')),
+            dCell(delta(tk(a), tk(b))),
+            h('td', { class: 'num muted', text: `${hit(a)} / ${hit(b)}` }))
+        }),
+        h('tr', { class: 'cmp-total' }, h('td', { text: 'toplam' }), h('td', { class: 'num strong', tip: tokTip(A), text: fmtTok(tk(A)) }), h('td', { class: 'num strong', tip: tokTip(B), text: fmtTok(tk(B)) }), dCell(delta(tk(A), tk(B))), h('td', {}))))))
+}
+
 function renderRunPanel(v, realRun) {
   const head = $('runhead')
   const box = $('graph')
   S.redraw = null
+  renderCompare(realRun)
   if (!realRun) {
     head.replaceChildren(h('h2', { id: 'h-graph', text: 'Workflow' }), h('span', { class: 'phint', text: 'bu session\'da workflow yok' }))
     box.replaceChildren(h('div', { class: 'empty' }, h('p', { class: 'empty-t', text: 'Workflow yok' }), h('p', { text: 'Şef bir workflow başlatınca phase ve turlarıyla burada akar.' })))
@@ -249,16 +316,17 @@ function renderRunPanel(v, realRun) {
   const run = replaying ? runAt(realRun, S.replay.t) : realRun
   const met = runMetrics(run, v)
   const norm = S.norms.wf[realRun.name]
-  const forecast = norm && norm.runs >= 2 ? h('span', { class: 'chip ghost-chip', tip: `son 30 günde ${norm.runs} ${realRun.name} run'ının ortalaması` }, `ort. ${fmtCost(norm.avg)}`) : null
+  const forecast = norm && norm.runs >= 2 ? h('span', { class: 'chip ghost-chip', tip: `son 30 günde ${norm.runs} ${realRun.name} run'ının ortalaması` }, `ort. ${amtNum(norm.avg, norm.avgTok)}`) : null
   put(head,
     h('h2', { id: 'h-graph', text: 'Workflow' }),
     h('span', { class: 'rh-name', text: realRun.name }),
     h('span', { class: `chip run-st s-${run.status}`, text: `${STATUS[run.status].i} ${RUN_STATUS[run.status]}` }),
     h('span', { class: 'chip ghost-chip', tip: 'agent sürelerinin toplamı / duvar saati: paralel çalışmanın etkisi' }, `paralellik ${met.par.toFixed(1)}×`),
-    h('span', { class: 'chip ghost-chip cost', tip: 'bu run\'daki agent\'ların toplam maliyeti' }, fmtCost(met.cost)),
+    h('span', { class: 'chip ghost-chip cost', tip: `bu run'daki agent'ların toplamı · ${fmtTok(met.tok)} token · ${fmtCost(met.cost)}` }, amtNum(met.cost, met.tok)),
     forecast,
     h('span', { class: 'rh-sp' }),
     h('button', { type: 'button', class: `fbtn${S.crit ? ' on' : ''}`, 'aria-pressed': String(S.crit), onclick: () => { S.crit = !S.crit; api.render() }, tip: 'her dalganın en uzun süren agent\'ı: run süresini bunlar belirler' }, 'kritik yol'),
+    h('button', { type: 'button', class: `fbtn${S.cmp?.tid === realRun.taskId ? ' on' : ''}`, 'aria-pressed': String(S.cmp?.tid === realRun.taskId), onclick: () => toggleCompare(realRun), tip: `aynı adlı (${realRun.name}) başka bir run'la agent agent token karşılaştırması` }, 'karşılaştır'),
     realRun.status !== 'running' ? replayCtl(realRun, v) : null)
 
   const phases = run.phases.length ? [...run.phases] : [...new Set(run.agents.map(a => a.phase).filter(Boolean))]
@@ -352,7 +420,7 @@ function nodeEl(v, a, crit) {
   h('span', { class: 'n-main' },
     h('span', { class: 'n-label', text: a.label }),
     h('span', { class: 'n-sub' }, h('span', { class: 'n-st', text: statusText(a.status) }), h('span', { class: 'n-sep', text: '·' }), dur,
-      a.tokens.cost ? h('span', { class: 'n-cost num', text: fmtCost(a.tokens.cost) }) : null),
+      totalTok(a.tokens) ? h('span', { class: 'n-cost num', tip: tokTip(a.tokens), text: amt(a.tokens) }) : null),
     last),
   warns.length ? h('span', { class: 'n-warn', tip: warns.map(w => w.text).join(' · '), text: '⚠' }) : null,
   a.graph.g ? h('span', { class: 'n-graph', tip: `graphify ${a.graph.g} kez`, text: '◈' }) : null)
@@ -576,15 +644,59 @@ function resultView(res, a) {
   return h('p', { class: 'muted', text: 'Bilinmeyen sonuç türü.' })
 }
 
-function tokenView(t) {
-  const rows = [['giriş', t.in], ['çıkış', t.out], ['cache okuma', t.cr], ['cache yazma', t.cw]]
-  const max = Math.max(1, ...rows.map(r => r[1]))
+function tokenView(a) {
+  const t = a.tokens
+  const rows = TOK_KINDS.map(([k, n]) => [k, n, t[k]])
+  const max = Math.max(1, ...rows.map(r => r[2]))
   const models = Object.entries(t.models)
+  const inTot = t.in + t.cr + t.cw
+  const hit = inTot ? t.cr / inTot : 0
+  const waste = t.cw >= 20000 && t.cr < t.cw
   return h('div', { class: 'tok' },
-    h('p', { class: 'tok-cost' }, h('b', { class: 'num', text: fmtCost(t.cost) }), h('span', { class: 'muted', text: ` · ${fmtTok(totalTok(t))} token · ${t.n} istek` })),
-    h('ul', { class: 'tok-rows' }, rows.map(([k, n]) => h('li', {},
-      h('span', { class: 'tk-k', text: k }), h('span', { class: 'tk-bar' }, h('span', { style: `width:${(n / max) * 100}%` })), h('span', { class: 'tk-n num', text: fmtTok(n) })))),
-    models.length > 1 ? h('ul', { class: 'mono-list' }, models.map(([m, x]) => h('li', { text: `${model(m)}: ${fmtCost(x.cost)} · ${fmtTok(x.in + x.out + x.cr + x.cw)}` }))) : null)
+    h('p', { class: 'tok-cost' }, h('b', { class: 'num', text: fmtTok(totalTok(t)) }), h('span', { class: 'muted', text: ` token · ${t.n} istek · ${fmtCost(t.cost)} karşılığı` })),
+    tokBar(t, 'wide'), tokLegend(),
+    h('ul', { class: 'tok-rows' }, rows.map(([k, label, n]) => h('li', {},
+      h('span', { class: 'tk-k', text: label }), h('span', { class: 'tk-bar' }, h('span', { class: `tk-${k}`, style: `width:${(n / max) * 100}%` })), h('span', { class: 'tk-n num', text: fmtTok(n) })))),
+    h('p', { class: 'small' }, h('b', { text: `cache isabeti ${fmtPct(hit)}` }), h('span', { class: 'muted', text: ' · girişin cache\'ten okunan payı (yüksek = ucuz)' })),
+    waste ? h('p', { class: 'warns', text: `⚠ cache'e ${fmtTok(t.cw)} yazdı, yalnız ${fmtTok(t.cr)} okudu: yazma bedeli geri dönmemiş` }) : null,
+    models.length > 1 ? h('ul', { class: 'mono-list' }, models.map(([m, x]) => h('li', { text: `${model(m)}: ${fmtTok(x.in + x.out + x.cr + x.cw)} · ${fmtCost(x.cost)}` }))) : null)
+}
+
+// Bağlam eğrisi: her model isteğinde bağlam (giriş + cache) ve içindeki cache okuma payı; en büyük sıçramalar işaretli
+export function jumpsOf(series) {
+  const out = []
+  for (let i = 1; i < series.length; i++) {
+    const d = series[i].c - series[i - 1].c - series[i - 1].o
+    if (d > 0 && series[i].x.length) out.push({ i, d, x: series[i].x.join(' · ') })
+  }
+  return out.sort((a, b) => b.d - a.d)
+}
+function contextCurve(a) {
+  const xs = a.series
+  if (xs.length < 2) return h('p', { class: 'muted', text: xs.length ? 'Tek istek; eğri ikinci istekten sonra çizilir.' : 'Bu agent için istek serisi yok (wf-monitor 0.5+ gerekir).' })
+  const W = 400, H = 170, L = 44, B = 22, T = 10, R = 8
+  const max = Math.max(1, ...xs.map(p => p.c))
+  const nice = [1e3, 2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5, 1e6, 2e6].find(v => v * 3 >= max) ?? max / 3
+  const top = nice * 3
+  const x = i => L + ((W - L - R) * i) / (xs.length - 1)
+  const y = v => T + (H - T - B) * (1 - v / top)
+  const svg = s('svg', { class: 'chart ctx', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `Bağlam eğrisi: ${xs.length} istek, zirve ${fmtTok(max)}` })
+  for (let k = 0; k <= 3; k++) svg.append(s('line', { x1: L, x2: W - R, y1: y(nice * k), y2: y(nice * k), class: k ? 'grid-l' : 'base-l' }), s('text', { x: L - 6, y: y(nice * k) + 4, 'text-anchor': 'end', class: 'ax', text: fmtTok(nice * k) }))
+  const line = xs.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.c).toFixed(1)}`).join(' ')
+  const cache = xs.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.r).toFixed(1)}`).join(' ') + ` L${x(xs.length - 1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`
+  svg.append(s('path', { d: cache, class: 'ctx-cache' }), s('path', { d: line, class: 'ctx-line' }))
+  const jumps = jumpsOf(xs).slice(0, 3)
+  for (const j of jumps) svg.append(s('circle', { cx: x(j.i), cy: y(xs[j.i].c), r: 4.5, class: 'ctx-jump' }))
+  const step = (W - L - R) / Math.max(1, xs.length - 1)
+  xs.forEach((p, i) => svg.append(s('rect', {
+    x: x(i) - step / 2, y: T, width: Math.max(step, 2), height: H - T - B, class: 'hit',
+    tip: `istek ${i + 1}${p.t ? ' · ' + fmtClock(p.t) : ''}\nbağlam ${fmtTok(p.c)} (cache okuma ${fmtTok(p.r)}, yazma ${fmtTok(p.w)}) · çıkış ${fmtTok(p.o)}${p.x.length ? '\nöncesinde: ' + p.x.join(' · ') : ''}`,
+  })))
+  svg.append(s('text', { x: L, y: H - 6, class: 'ax', text: 'istek 1' }), s('text', { x: W - R, y: H - 6, 'text-anchor': 'end', class: 'ax', text: `istek ${xs.length}` }))
+  return h('div', { class: 'ctx-w' },
+    h('div', { class: 'tk-legend' }, h('span', { class: 'lg' }, h('i', { class: 'ctx-k-line', 'aria-hidden': 'true' }), 'bağlam (giriş + cache)'), h('span', { class: 'lg' }, h('i', { class: 'tk-sw tk-cr', 'aria-hidden': 'true' }), 'cache okuma'), h('span', { class: 'lg' }, h('i', { class: 'ctx-k-jump', 'aria-hidden': 'true' }), 'en büyük sıçramalar')),
+    svg,
+    jumps.length ? h('ol', { class: 'jumps' }, jumps.map(j => h('li', {}, h('b', { class: 'num', text: `+${fmtTok(j.d)}` }), h('span', { class: 'mono', text: j.x })))) : null)
 }
 
 let detailSig = '', detailDur = null
@@ -627,7 +739,8 @@ function renderDetail() {
     a.main && a.goal ? section('Hedef', h('p', { class: 'res-text', text: a.goal })) : null,
     a.main && a.answer ? section('Son yanıt', h('p', { class: 'res-text', text: a.answer })) : null,
     !a.main && a.hint ? section('Görev', h('p', { class: 'res-text mono', text: a.hint })) : null,
-    section('Token ve maliyet', tokenView(a.tokens)),
+    section('Token', tokenView(a)),
+    section('Bağlam eğrisi', contextCurve(a)),
     section('Araçlar', graphMeter(a.graph), toolBars(a.tools)),
     section('Son adımlar', steps),
     a.main ? null : section('Sonuç', resultView(a.result, a)))

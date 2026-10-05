@@ -16,6 +16,7 @@ export const S = {
   flagged: new Set(), // bildirimi yapılmış anomali anahtarları
   replay: null, // { tid, t } geçmiş run'da zaman yolculuğu
   crit: false, // kritik yol vurgusu
+  cmp: null, // { name, tid, runs, b, busy } run karşılaştırma
 }
 export const serverNow = () => Date.now() + S.off
 // mod saati: push'un mod tarafındaki zamanı ile sunucunun alış zamanı arasındaki kayma düzeltilir
@@ -30,6 +31,8 @@ const tokens = t => {
 const steps = xs => each(xs, x => (x && typeof x === 'object' ? { t: num(x.t), text: str(x.text), tool: str(x.tool) } : null))
 const tools = t => Object.fromEntries(Object.entries(obj(t)).filter(([, v]) => num(v) != null).slice(0, 40))
 const graph = g => ({ g: num(obj(g).g) ?? 0, r: num(obj(g).r) ?? 0 })
+// istek başına bağlam serisi: { t, c: bağlam, o: çıkış, r: cache okuma, w: cache yazma, x: araçlar }
+const series = xs => each(xs, p => (p && typeof p === 'object' && num(p.c) != null ? { t: num(p.t), c: num(p.c), o: num(p.o) ?? 0, r: num(p.r) ?? 0, w: num(p.w) ?? 0, x: arr(p.x).slice(0, 4).map(str) } : null)).slice(-200)
 
 export function normAgent(a, extra = {}) {
   if (!a || typeof a !== 'object' || (!extra.main && !str(a.id))) return null
@@ -55,6 +58,7 @@ export function normAgent(a, extra = {}) {
     tokens: tokens(a.tokens),
     tools: tools(a.tools),
     graph: graph(a.graph),
+    series: series(a.series),
     // orkestratöre özgü
     goal: str(a.goal), answer: str(a.answer), turns: num(a.turns) ?? 0, since: num(a.since), tool: str(a.tool),
   }
@@ -216,7 +220,8 @@ export function warn(sid, key, ev) {
 function sample(v) {
   const xs = bucket(S.samples, v.id, () => [])
   const t = v.receivedAt
-  if (!xs.length || xs.at(-1).cost !== v.totals.cost || t - xs.at(-1).t > 60000) xs.push({ t, cost: v.totals.cost })
+  const tok = v.totals.in + v.totals.out + v.totals.cr + v.totals.cw
+  if (!xs.length || xs.at(-1).tok !== tok || t - xs.at(-1).t > 60000) xs.push({ t, cost: v.totals.cost, tok })
   while (xs.length > 240) xs.shift()
 }
 
@@ -308,8 +313,8 @@ export async function loadNorms() {
     const r = await fetch(`/api/stats?days=30&tz=${-new Date().getTimezoneOffset()}`, { credentials: 'same-origin', cache: 'no-store' })
     if (!r.ok) return
     const d = await r.json()
-    S.norms.cls = Object.fromEntries(arr(d.byClass).map(c => [clsKey(c.key), { medDur: num(c.medDur) ?? 0, medCost: num(c.medCost) ?? 0, n: num(c.n) ?? 0 }]))
-    S.norms.wf = Object.fromEntries(arr(d.workflows).map(w => [str(w.key), { avg: (num(w.cost) ?? 0) / Math.max(1, num(w.runs) ?? 1), runs: num(w.runs) ?? 0 }]))
+    S.norms.cls = Object.fromEntries(arr(d.byClass).map(c => [clsKey(c.key), { medDur: num(c.medDur) ?? 0, medCost: num(c.medCost) ?? 0, medTok: num(c.medTok) ?? 0, n: num(c.n) ?? 0 }]))
+    S.norms.wf = Object.fromEntries(arr(d.workflows).map(w => [str(w.key), { avg: (num(w.cost) ?? 0) / Math.max(1, num(w.runs) ?? 1), avgTok: (num(w.tokens) ?? 0) / Math.max(1, num(w.runs) ?? 1), runs: num(w.runs) ?? 0 }]))
   } catch {}
 }
 
@@ -324,7 +329,8 @@ export function anomalies(a, v) {
   if (n && n.n >= 3) {
     const dur = now - a.startedAt
     if (n.medDur && dur > Math.max(2 * n.medDur, 5 * 60e3)) out.push({ k: 'slow', text: `sınıf ortancasının ${(dur / n.medDur).toFixed(1)}× süresi` })
-    if (n.medCost && a.tokens.cost > Math.max(3 * n.medCost, 0.5)) out.push({ k: 'costly', text: `sınıf ortancasının ${(a.tokens.cost / n.medCost).toFixed(1)}× maliyeti` })
+    const tok = a.tokens.in + a.tokens.out + a.tokens.cr + a.tokens.cw
+    if (n.medTok && tok > Math.max(3 * n.medTok, 200_000)) out.push({ k: 'costly', text: `sınıf ortancasının ${(tok / n.medTok).toFixed(1)}× tokeni` })
   }
   return out
 }

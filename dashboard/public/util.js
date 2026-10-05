@@ -87,6 +87,27 @@ export const fmtPct = v => `${Math.round((num(v) ?? 0) * 100)}%`
 export const model = m => (m ? shortModel(m) : '—')
 export const totalTok = t => (t ? t.in + t.out + t.cr + t.cw : 0)
 
+// ---- birim: varsayılan token (giriş + çıkış + cache okuma + cache yazma); $ isteğe bağlı
+export const TOK_KINDS = [['in', 'giriş'], ['cw', 'cache yazma'], ['cr', 'cache okuma'], ['out', 'çıkış']]
+let unitNow = (() => { try { return localStorage.getItem('wf-unit') === 'usd' ? 'usd' : 'tok' } catch { return 'tok' } })()
+export const unit = () => unitNow
+export function setUnit(u) {
+  unitNow = u === 'usd' ? 'usd' : 'tok'
+  try { localStorage.setItem('wf-unit', unitNow) } catch {}
+}
+// t: { in, out, cr, cw, cost } — seçili birimde tek değer ve biçimli metin
+export const amtOf = t => (unitNow === 'usd' ? num(t?.cost) ?? 0 : totalTok(t))
+export const amt = t => (unitNow === 'usd' ? fmtCost(t?.cost) : fmtTok(totalTok(t)))
+export const amtNum = (cost, tok) => (unitNow === 'usd' ? fmtCost(cost) : fmtTok(tok))
+export const tokTip = t => TOK_KINDS.map(([k, n]) => `${n} ${fmtTok(t?.[k])}`).join(' · ') + ` · ${fmtCost(t?.cost)}`
+export const tokLegend = () => h('span', { class: 'tk-legend' }, TOK_KINDS.map(([k, n]) => h('span', { class: 'lg' }, h('i', { class: `tk-sw tk-${k}`, 'aria-hidden': 'true' }), n)))
+// İnce yığılmış şerit: giriş / cache yazma / cache okuma / çıkış (sabit sıra, 1px boşluk)
+export function tokBar(t, cls = '') {
+  const tot = totalTok(t)
+  return h('span', { class: `tokbar ${cls}`, role: 'img', 'aria-label': tokTip(t), tip: tokTip(t) },
+    tot ? TOK_KINDS.filter(([k]) => t[k] > 0).map(([k]) => h('i', { class: `tk-${k}`, style: `flex-grow:${t[k] / tot}` })) : null)
+}
+
 // ---- sınıf glifleri
 const SHAPES = {
   star: ['polygon', { points: '13,0.8 16.2,9.3 25.2,9.5 18.1,15.1 20.6,23.9 13,18.8 5.4,23.9 7.9,15.1 0.8,9.5 9.8,9.3' }],

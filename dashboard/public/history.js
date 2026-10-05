@@ -8,7 +8,7 @@ const st = { sort: 'startedAt', dir: -1, q: '' }
 
 const COLS = [
   ['startedAt', 'başladı'], ['repo', 'repo'], ['title', 'hedef'], ['model', 'model'], ['dur', 'süre'],
-  ['agents', 'agent'], ['runs', 'run'], ['tokens', 'token'], ['graph', 'graf-önce'], ['cost', 'maliyet'],
+  ['agents', 'agent'], ['runs', 'run'], ['tokens', 'token'], ['graph', 'graf-önce'], ['cost', '$'],
 ]
 const val = (x, k) => ({
   dur: x.lastAt - x.startedAt,
@@ -42,7 +42,7 @@ export function renderHistory() {
   put(box,
     h('div', { class: 'costs-head' },
       h('h1', { class: 'v-title', text: 'Geçmiş' }),
-      h('p', { class: 'muted', text: `${rows.length} session · toplam ${fmtCost(total)} · kalıcı defterden` }),
+      h('p', { class: 'muted', text: `${rows.length} session · ${fmtTok(rows.reduce((n, x) => n + totalTok(x.totals), 0))} token · ${fmtCost(total)} · kalıcı defterden` }),
       h('div', { class: 'ctl' }, search, h('a', { class: 'ghost link', href: '/api/export.csv?days=0', download: 'wf-defter.csv' }, '⇩ CSV defter'))),
     rows.length ? h('div', { class: 'panel' }, h('div', { class: 'tbl-w' }, h('table', { class: 'tbl hist' },
       h('thead', {}, h('tr', {}, COLS.map(([k, label]) => h('th', { scope: 'col', 'aria-sort': st.sort === k ? (st.dir > 0 ? 'ascending' : 'descending') : 'none' },
@@ -55,9 +55,9 @@ export function renderHistory() {
         h('td', { class: 'num', text: fmtDur(x.lastAt - x.startedAt) }),
         h('td', { class: 'num', text: String(x.totals.agents) }),
         h('td', { class: 'num', text: String(x.runs.length) }),
-        h('td', { class: 'num', text: fmtTok(totalTok(x.totals)) }),
+        h('td', { class: 'num strong', tip: `giriş ${fmtTok(x.totals.in)} · cache yazma ${fmtTok(x.totals.cw)} · cache okuma ${fmtTok(x.totals.cr)} · çıkış ${fmtTok(x.totals.out)}`, text: fmtTok(totalTok(x.totals)) }),
         h('td', { class: 'num', text: val(x, 'graph') < 0 ? '—' : fmtPct(val(x, 'graph')) }),
-        h('td', { class: 'num strong', text: fmtCost(x.totals.cost) }))))))) :
+        h('td', { class: 'num muted', text: fmtCost(x.totals.cost) }))))))) :
       h('div', { class: 'empty' }, h('p', { class: 'empty-t', text: 'Defter boş' }), h('p', { text: 'Cloud session\'larda çalışan her şey burada kalıcı olarak birikir.' })))
 }
 export { glyph }

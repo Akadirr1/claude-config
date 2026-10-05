@@ -56,17 +56,28 @@ class Session {
   spend(target, model, scale = 1) {
     const by = (target.usage ??= { byModel: {} }).byModel
     const x = (by[model] ??= { in: 0, out: 0, cr: 0, cw: 0, n: 0 })
-    x.in += Math.round(between(1500, 9000) * scale)
-    x.out += Math.round(between(300, 2400) * scale)
-    x.cr += Math.round(between(8000, 60000) * scale)
-    x.cw += Math.round(between(500, 6000) * scale)
+    // bağlam her istekte büyür; büyük dosya okuyan araçtan sonra sıçrar
+    const tools = target._between ?? []
+    const jump = tools.some(t => /^Read/.test(t)) ? between(8000, 40000) : tools.some(t => /graphify/.test(t)) ? between(500, 2500) : between(800, 4000)
+    const prev = target.series?.at(-1)
+    const ctx = Math.round((prev ? prev.c + prev.o + jump : between(9000, 16000)) * scale)
+    const i = Math.round(between(1500, 9000) * scale), cw = Math.round(between(500, 6000) * scale), out = Math.round(between(300, 2400) * scale)
+    const cr = Math.max(0, ctx - i - cw)
+    x.in += i
+    x.out += out
+    x.cr += cr
+    x.cw += cw
     x.n++
+    ;(target.series ??= []).push({ t: this.clock, c: i + cr + cw, o: out, r: cr, w: cw, x: tools.slice(0, 4) })
+    target.series = target.series.slice(-120)
+    target._between = []
   }
   step(target, tool, arg, key) {
     const text = `${tool}: ${arg}`.slice(0, 160)
     target.steps.push(target === this.main ? { t: this.clock, text, tool } : { t: this.clock, text })
     target.steps = target.steps.slice(target === this.main ? -40 : -10)
     target.tools[tool] = (target.tools[tool] ?? 0) + 1
+    ;(target._between ??= []).push(text.slice(0, 70))
     if (/graphify/.test(arg)) target.graph.g++
     else if (['Read', 'Grep', 'Glob'].includes(tool)) target.graph.r++
     if (key) this.dirty.add(key)

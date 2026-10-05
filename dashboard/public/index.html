@@ -19,7 +19,7 @@
   </div>
   <nav class="tabs" aria-label="Görünüm">
     <a class="tab" href="#canli" data-r="canli">Canlı</a>
-    <a class="tab" href="#maliyet" data-r="maliyet">Maliyet</a>
+    <a class="tab" href="#maliyet" data-r="maliyet">Token</a>
     <a class="tab" href="#gecmis" data-r="gecmis">Geçmiş</a>
     <a class="tab" href="#evren" data-r="evren">Evren</a>
     <a class="tab" href="#otomasyon" data-r="otomasyon">Otomasyon</a>
@@ -34,6 +34,7 @@
     <span id="conn" class="conn" data-state="wait" role="status"><i aria-hidden="true"></i><span id="conn-t">bağlanıyor</span></span>
     <button id="kbd" class="ghost icon" type="button" aria-label="Komut paleti (Ctrl+K)" title="Komut paleti (Ctrl+K)">⌘K</button>
     <button id="bell" class="ghost icon" type="button" aria-pressed="false">🔕</button>
+    <button id="unit" class="ghost icon unit-b" type="button">tok</button>
     <span class="theme-w"><button id="theme" class="ghost icon" type="button" aria-expanded="false">◐</button></span>
     <form class="logout" method="post" action="/logout"><button class="ghost" type="submit">Çıkış</button></form>
   </div>
@@ -57,6 +58,7 @@
   <section id="graph-panel" class="panel graph-panel" aria-labelledby="h-graph">
     <div id="runhead" class="phead"></div>
     <div id="graph" class="graph"></div>
+    <div id="cmp" class="cmp" hidden></div>
   </section>
 
   <section class="panel feed-panel" aria-labelledby="h-feed">
