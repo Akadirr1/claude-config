@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { classify } from '../public/classes.js'
 import { costOf, modelKey } from '../public/pricing.js'
-import { stats } from '../store.mjs'
+import { stats, merge, view, summary } from '../store.mjs'
 
 test('sınıflandırma: Claude\'un serbest label/tipleri genel sınıflara oturur', () => {
   const cases = [
@@ -50,4 +50,15 @@ test('analiz: gün sınırı saat dilimine göre, tümü aralığı ilk kayda ka
 
 test('sınıflandırma: belirsiz etiketlerde doküman ağır basar', () => {
   assert.equal(classify({ label: 'Write deploy notes for volume', hint: 'Write a short README section about the /app/data volume' }), 'docs')
+})
+
+test('eserler: epoch\'lar arası birleşir, PR yalnız github pull bağlantısı, commit sha doğrulanır', () => {
+  const b = (epoch, art) => ({ v: 3, session: { id: 'a1', repo: 'o/r' }, epoch, sentAt: epoch, runs: [], subs: [], art })
+  let rec = merge(null, b(1, { files: [{ p: '/w/a.js', n: 2, t: 5, by: ['main'] }], commits: [{ sha: 'abc1234', msg: 'x', t: 6, by: 'main' }, { sha: 'zz;rm', msg: 'y' }], prs: [{ url: 'javascript:alert(1)' }, { url: 'https://github.com/o/r/pull/3', t: 7, by: 'd1' }] }), 1)
+  rec = merge(rec, b(2, { files: [{ p: '/w/a.js', n: 1, t: 9, by: ['d1'] }], commits: [], prs: [] }), 2)
+  const v = view(rec)
+  assert.deepEqual(v.art.files, [{ p: '/w/a.js', n: 2, t: 9, by: ['main', 'd1'] }])
+  assert.deepEqual(v.art.commits.map(c => c.sha), ['abc1234'])
+  assert.deepEqual(v.art.prs.map(x => x.url), ['https://github.com/o/r/pull/3'])
+  assert.deepEqual(summary(v).art, { files: 1, commits: 1, prs: ['https://github.com/o/r/pull/3'] })
 })

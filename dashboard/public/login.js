@@ -1,6 +1,8 @@
 // Giriş ekranı: kayıtlı temayı uygula, ?e= hata mesajını göster.
+const THEMES = ['dark', 'light', 'kehribar', 'orman', 'gul', 'kontrast']
 try {
-  if (localStorage.getItem('wf-theme') === 'light') document.documentElement.dataset.theme = 'light'
+  const t = localStorage.getItem('wf-theme')
+  if (THEMES.includes(t)) document.documentElement.dataset.theme = t
 } catch {}
 
 const MESSAGES = { bad: 'Token yanlış.', rate: 'Çok fazla deneme, biraz bekle.' }

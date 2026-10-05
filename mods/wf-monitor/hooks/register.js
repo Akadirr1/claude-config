@@ -23,6 +23,9 @@ const MAX_RUNS = 10 // payload'da ve bellekte tutulan bitmiş run sayısı
 const MAX_SUBS = 200 // bellekte tutulan bitmiş alt agent sayısı
 const MAX_SUBS_PUSH = 40 // bir push'taki alt agent sayısı (kalanlar sonraki push'ta)
 const MAX_MAIN_STEPS = 40
+const MAX_ART_FILES = 300
+const MAX_ART_COMMITS = 100
+const MAX_ART_PRS = 30
 const MAX_UNKNOWN = 50 // run'ı bilinmeyen agent'lar için stepLog girdisi
 const RECHECK_MS = 60000 // tahminle biten run'ın journal'ı bu kadar daha izlenir
 const STATUS = { completed: 'done', failed: 'failed', killed: 'stopped', done: 'done', stopped: 'stopped' }
@@ -35,6 +38,7 @@ const usage = new Map() // 'main' | agentId -> { byModel: { model: { in, out, cr
 const toolMix = new Map() // 'main' | agentId -> { araç: sayı }
 const graphUse = new Map() // 'main' | agentId -> { g: graphify çağrısı, r: Read/Grep/Glob }
 const sent = new Map() // varlık anahtarı -> sunucuya teslim edilen imza
+const art = { files: new Map(), commits: new Map(), prs: new Map() } // session'ın eserleri: değişen dosya, commit, PR
 const main = { status: 'idle', since: 0, tool: null, goal: '', turns: 0, answer: '', model: null, steps: [] }
 let epoch = 0 // süreç kimliği: mod yeniden yüklenince sunucu eski sayaçların üstüne yazmasın, ekler
 let pushing = false
@@ -203,6 +207,64 @@ function describe(e) {
   const arg = e.command ?? e.file_path ?? e.notebook_path ?? e.pattern ?? e.url ?? e.query ?? e.description
   return arg == null ? String(e.tool) : `${e.tool}: ${arg}`
 }
+
+// Araç sonucundan eser: Edit/Write → dosya; git commit çıktısı → commit; gh/MCP çıktısındaki PR bağlantısı → PR
+const EDITS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
+const COMMIT = /^\[([^\]]{1,200}?)(?: \([^)]{1,40}\))? ([0-9a-f]{7,40})\] (.{0,300})$/m // "detached HEAD" dahil
+const PR_URL = /https:\/\/github\.com\/[\w.-]{1,100}\/[\w.-]{1,100}\/pull\/\d{1,9}/g
+function outText(res) {
+  const r = res?.result
+  if (typeof r === 'string') return r.slice(0, 20000)
+  if (typeof r?.stdout === 'string') return r.stdout.slice(0, 20000)
+  try {
+    return JSON.stringify(r ?? '').slice(0, 20000)
+  } catch {
+    return ''
+  }
+}
+export function artifactsOf(e, res) {
+  const out = { files: [], commits: [], prs: [] }
+  if (res?.isError) return out
+  const path = e.file_path ?? e.notebook_path
+  if (EDITS.has(e.tool) && typeof path === 'string') out.files.push(clip(path, 300))
+  const bash = e.tool === 'Bash' ? String(e.command ?? '') : ''
+  if (/\bgit\b[^\n]*\bcommit\b/.test(bash)) {
+    const m = COMMIT.exec(outText(res))
+    if (m) out.commits.push({ branch: m[1], sha: m[2], msg: m[3] })
+  }
+  // yalnız PR açan çağrılar: list/search/read araçlarının çıktısındaki yabancı PR'lar "açıldı" sayılmasın
+  if (/\bgh\s+pr\s+create\b/.test(bash) || /create_?pull_?request$/i.test(String(e.tool ?? '')))
+    for (const u of new Set(outText(res).match(PR_URL) ?? [])) out.prs.push(u)
+  return out
+}
+function addArtifacts(key, e, res, t) {
+  const a = artifactsOf(e, res)
+  const by = key === 'main' ? 'main' : key
+  for (const p of a.files) {
+    const f = art.files.get(p) ?? { p, n: 0, t, by: [] }
+    f.n++
+    f.t = t
+    if (!f.by.includes(by) && f.by.length < 6) f.by.push(by)
+    art.files.delete(p)
+    art.files.set(p, f)
+  }
+  for (const c of a.commits) art.commits.set(c.sha, { ...c, t, by })
+  for (const u of a.prs) if (!art.prs.has(u)) art.prs.set(u, { url: u, t, by })
+  for (const [m, n, pre] of [[art.files, MAX_ART_FILES, 'af:'], [art.commits, MAX_ART_COMMITS, 'ac:'], [art.prs, MAX_ART_PRS, 'ap:']])
+    while (m.size > n) {
+      const k = m.keys().next().value
+      m.delete(k)
+      sent.delete(pre + k)
+    }
+  if (a.files.length || a.commits.length || a.prs.length) touch()
+}
+// Eserler delta gider: sunucu anahtarla birleştirir; push başına en fazla ART_PUSH değişmiş girdi
+const ART_PUSH = 60
+const artItems = () => [
+  ...[...art.files.values()].map(v => ['af:' + v.p, 'files', v]),
+  ...[...art.commits.values()].map(v => ['ac:' + v.sha, 'commits', v]),
+  ...[...art.prs.values()].map(v => ['ap:' + v.url, 'prs', v]),
+]
 
 function since(ms) {
   const s = Math.max(0, Math.round(ms / 1000))
@@ -377,19 +439,21 @@ async function push() {
   const runEnts = [...runs.values()].map(r => ent('r:' + r.taskId, view(r)))
   const subEnts = [...subs.values()].filter(x => !wf.has(x.id)).map(x => ent('s:' + x.id, viewSub(x)))
   const mainEnt = ent('main', viewMain())
+  const artP = artItems().map(([k, kind, v]) => ({ ...ent(k, v), kind })).filter(e => sent.get(e.key) !== e.sig).slice(0, ART_PUSH)
   const runP = pending(runEnts, MAX_RUNS)
   const subP = pending(subEnts, MAX_SUBS_PUSH)
-  const changed = runP.length || subP.length || sent.get('main') !== mainEnt.sig
+  const changed = runP.length || subP.length || sent.get('main') !== mainEnt.sig || artP.length
   // değişiklik yoksa yalnız iş sürerken heartbeat (panel "son güncelleme"yi taze tutar)
   if (!changed && (!active() || nowMs - lastPushAt < HEARTBEAT_MS)) return
   const body = {
     v: 3, session: host.session, epoch, sentAt: nowMs,
     main: mainEnt.v, misc: { usage: maskDeep(miscUsage()) },
     subs: subP.map(e => e.v), runs: runP.map(e => e.v),
+    ...(artP.length && { art: { files: artP.filter(e => e.kind === 'files').map(e => e.v), commits: artP.filter(e => e.kind === 'commits').map(e => e.v), prs: artP.filter(e => e.kind === 'prs').map(e => e.v) } }),
   }
   const s = fit(body)
-  const keys = new Map([...runP, ...subP, mainEnt].map(e => [e.key, e.sig]))
-  const kept = ['main', ...body.runs.map(r => 'r:' + r.taskId), ...body.subs.map(x => 's:' + x.id)]
+  const keys = new Map([...runP, ...subP, mainEnt, ...artP].map(e => [e.key, e.sig]))
+  const kept = ['main', ...artP.map(e => e.key), ...body.runs.map(r => 'r:' + r.taskId), ...body.subs.map(x => 's:' + x.id)]
   pushing = true
   lastPushAt = nowMs
   const ok = await host.post(s).then(res => res?.ok === true, () => false)
@@ -410,6 +474,7 @@ const pushSoon = () => void push().catch(() => {})
 function undelivered() {
   if (!host?.post) return false
   if (sent.get('main') !== sigs.get('main')) return true
+  for (const [k] of artItems()) if (!delivered(k)) return true
   for (const r of runs.values()) if (!delivered('r:' + r.taskId)) return true
   for (const x of subs.values()) if (!delivered('s:' + x.id)) return true
   return false
@@ -727,7 +792,9 @@ export function register(on) {
       Object.assign(main, { status: 'tool', tool: clip(String(e.tool ?? ''), 60), since: t })
       touch()
       try {
-        return await next(e)
+        const res = await next(e)
+        addArtifacts('main', e, res, t)
+        return res
       } finally {
         if (main.status === 'tool') Object.assign(main, { status: 'thinking', tool: null, since: await $.clock.now() })
       }
@@ -745,7 +812,9 @@ export function register(on) {
     }
     if (run) reopen(run)
     if (sub && sub.status !== 'running') endSub(sub, 'running', t)
-    return next(e)
+    const res = await next(e)
+    addArtifacts(e.agentId, e, res, t)
+    return res
   })
 
   // Orkestratörün turu başlar: hedef kullanıcının metni (bildirimle başlayan turlar hedefi değiştirmez)

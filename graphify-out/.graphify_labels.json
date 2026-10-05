@@ -1,5 +1,5 @@
 {
-  "0": "store.mjs",
+  "0": "automations.mjs",
   "1": "feature.js",
   "2": "claude-config",
   "3": "register.js",
@@ -12,7 +12,15 @@
   "10": "reviewer-high.md",
   "11": "reviewer-medium.md",
   "12": "reviewer-xhigh.md",
-  "13": "state.js",
+  "13": "$",
   "14": "wf · akış",
-  "16": "login.js"
+  "15": "store.mjs",
+  "16": "login.js",
+  "17": "automations.js",
+  "18": "num",
+  "19": "register",
+  "20": "push",
+  "21": "finish",
+  "22": "clip",
+  "23": "cut"
 }

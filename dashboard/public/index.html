@@ -21,6 +21,8 @@
     <a class="tab" href="#canli" data-r="canli">Canlı</a>
     <a class="tab" href="#maliyet" data-r="maliyet">Maliyet</a>
     <a class="tab" href="#gecmis" data-r="gecmis">Geçmiş</a>
+    <a class="tab" href="#evren" data-r="evren">Evren</a>
+    <a class="tab" href="#otomasyon" data-r="otomasyon">Otomasyon</a>
   </nav>
   <div id="pickers" class="pickers">
     <label class="pick"><span class="pick-k">Session</span><select id="sess" disabled></select></label>
@@ -32,7 +34,7 @@
     <span id="conn" class="conn" data-state="wait" role="status"><i aria-hidden="true"></i><span id="conn-t">bağlanıyor</span></span>
     <button id="kbd" class="ghost icon" type="button" aria-label="Komut paleti (Ctrl+K)" title="Komut paleti (Ctrl+K)">⌘K</button>
     <button id="bell" class="ghost icon" type="button" aria-pressed="false">🔕</button>
-    <button id="theme" class="ghost icon" type="button">☀</button>
+    <span class="theme-w"><button id="theme" class="ghost icon" type="button" aria-expanded="false">◐</button></span>
     <form class="logout" method="post" action="/logout"><button class="ghost" type="submit">Çıkış</button></form>
   </div>
 </header>
@@ -65,6 +67,11 @@
     <ol id="feed" class="feed"></ol>
   </section>
 
+  <section id="art-panel" class="panel art-panel" aria-labelledby="h-art" hidden>
+    <div class="phead"><h2 id="h-art">Eserler</h2><span class="phint">bu session'da ne üretildi: PR, commit, dosya</span></div>
+    <div id="art" class="art pbody"></div>
+  </section>
+
   <section class="panel gantt-panel" aria-labelledby="h-gantt">
     <div class="phead"><h2 id="h-gantt">Zaman çubukları</h2><span class="phint">Şef, alt agent'lar ve workflow'lar; kim ne zaman çalıştı</span></div>
     <div id="gantt" class="gantt"></div>
@@ -73,6 +80,8 @@
 
 <main id="view-costs" class="layout costs" hidden></main>
 <main id="view-history" class="layout history" hidden></main>
+<main id="view-auto" class="layout costs auto" hidden></main>
+<main id="view-evren" class="layout costs evren-v" hidden></main>
 
 <div id="scrim" class="scrim" hidden></div>
 <aside id="detail" class="detail" hidden aria-labelledby="d-title"></aside>

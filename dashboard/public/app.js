@@ -6,21 +6,61 @@ import { S, serverNow, setView, setSummary, applyPatch, pickDefault, loadSession
 import { initLive, renderLive, live, openDetail, narrow } from './live.js'
 import { initCosts, renderCosts, refreshCosts } from './costs.js'
 import { initHistory, renderHistory } from './history.js'
+import { renderAutomations, refreshAutomations } from './automations.js'
+import { initEvren, renderEvren } from './evren.js'
+import { play, setSound, soundOn } from './sound.js'
 
-// ---------- tema (varsayılan koyu)
+// ---------- temalar: menüden seçilir, seçim cihazda kalır
+const THEMES = [
+  ['dark', 'Obsidyen', ['#12110f', '#1b1916', '#ede5d6', '#d95926']],
+  ['light', 'Parşömen', ['#f3eee4', '#fffbf3', '#1d1913', '#eb6834']],
+  ['kehribar', 'Kehribar CRT', ['#0b0a08', '#12100b', '#ffcf6e', '#ffb000']],
+  ['orman', 'Orman', ['#0c120e', '#121a15', '#e6efdf', '#7fd36b']],
+  ['gul', 'Gül', ['#120d10', '#1a1317', '#f6e6ee', '#ff7ab8']],
+  ['kontrast', 'Yüksek kontrast', ['#000000', '#111111', '#ffffff', '#ffe600']],
+]
+const themeOk = t => THEMES.some(x => x[0] === t)
 function setTheme(t, save) {
+  if (!themeOk(t)) t = 'dark'
   document.documentElement.dataset.theme = t
   if (save) pref.set('theme', t)
+  const meta = document.querySelector('meta[name="theme-color"]')
+  if (meta) meta.setAttribute('content', THEMES.find(x => x[0] === t)[2][0])
   const b = $('theme')
-  b.textContent = t === 'light' ? '☾' : '☀'
-  b.setAttribute('aria-label', t === 'light' ? 'Koyu temaya geç' : 'Açık temaya geç')
+  b.setAttribute('aria-label', `Tema: ${THEMES.find(x => x[0] === t)[1]}`)
   b.title = b.getAttribute('aria-label')
 }
-setTheme(pref.get('theme', 'dark') === 'light' ? 'light' : 'dark')
-$('theme').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light', true))
+setTheme(pref.get('theme', 'dark'))
+const themeMenu = h('div', { class: 'theme-menu', role: 'menu', hidden: true })
+$('theme').after(themeMenu)
+function closeThemes(focus) {
+  themeMenu.hidden = true
+  $('theme').setAttribute('aria-expanded', 'false')
+  if (focus) $('theme').focus()
+}
+$('theme').setAttribute('aria-haspopup', 'menu')
+$('theme').addEventListener('click', () => {
+  if (!themeMenu.hidden) return closeThemes()
+  const cur = document.documentElement.dataset.theme
+  themeMenu.replaceChildren(...THEMES.map(([k, name, sw]) => h('button', {
+    type: 'button', role: 'menuitemradio', class: 'theme-o', 'aria-checked': String(k === cur),
+    onclick: () => { setTheme(k, true); closeThemes(true); render() },
+  }, h('span', { class: 'sw', 'aria-hidden': 'true' }, sw.map(c => h('i', { style: `background:${c}` }))), h('span', { class: 'theme-t', text: name }))))
+  themeMenu.hidden = false
+  $('theme').setAttribute('aria-expanded', 'true')
+  themeMenu.querySelector('[aria-checked="true"]')?.focus()
+})
+themeMenu.addEventListener('keydown', e => {
+  const items = [...themeMenu.querySelectorAll('.theme-o')]
+  const i = items.indexOf(document.activeElement)
+  if (e.key === 'ArrowDown') { items[(i + 1) % items.length].focus(); e.preventDefault() }
+  else if (e.key === 'ArrowUp') { items[(i - 1 + items.length) % items.length].focus(); e.preventDefault() }
+  else if (e.key === 'Escape') closeThemes(true)
+})
+document.addEventListener('click', e => { if (!themeMenu.hidden && !e.target.closest('.theme-menu, #theme')) closeThemes() })
 
-// ---------- yönlendirme: #canli, #maliyet, #gecmis (session derin bağlantısı: #canli/<sid>)
-const ROUTES = { canli: 'live', maliyet: 'costs', gecmis: 'history' }
+// ---------- yönlendirme: #canli, #maliyet, #gecmis, #otomasyon (session derin bağlantısı: #canli/<sid>)
+const ROUTES = { canli: 'live', maliyet: 'costs', gecmis: 'history', evren: 'evren', otomasyon: 'auto' }
 function readHash() {
   const [r, sid] = location.hash.slice(1).split('/')
   S.route = ROUTES[r] ?? 'live'
@@ -128,7 +168,8 @@ function toast(ev, sid) {
 }
 // yalnız önemli olaylar: run bitişi, hata, uyarı (devirler ve doğumlar akışta kalır)
 setEventSink((sid, ev) => {
-  const important = ev.runEnd || ev.type === 'error' || ev.type === 'warn'
+  play(ev)
+  const important = ev.runEnd || ev.pr || ev.type === 'error' || ev.type === 'warn'
   if (!important) return
   toast(ev, sid)
   if (notifyOn && 'Notification' in window && Notification.permission === 'granted' && document.hidden) {
@@ -145,7 +186,10 @@ function palSearch() {
   const q = palIn.value.trim().toLocaleLowerCase('tr')
   const items = []
   const goView = r => ({ text: r[1], sub: 'görünüm', go: () => { location.hash = '#' + r[0] } })
-  for (const r of [['canli', 'Canlı'], ['maliyet', 'Maliyet'], ['gecmis', 'Geçmiş']]) items.push(goView(r))
+  for (const r of [['canli', 'Canlı'], ['maliyet', 'Maliyet'], ['gecmis', 'Geçmiş'], ['evren', 'Evren'], ['otomasyon', 'Otomasyon']]) items.push(goView(r))
+  items.push({ text: tv ? 'TV modundan çık' : 'TV modu (duvar ekranı, otomatik döner)', sub: 'komut', go: () => (tv ? tvStop() : tvStart()) })
+  items.push({ text: soundOn() ? 'Sesi kapat' : 'Sesi aç (olaylar sese dönüşür)', sub: 'komut', go: () => { setSound(!soundOn()); toast({ type: 'end', icon: soundOn() ? '♪' : '·', text: soundOn() ? 'Ses açık' : 'Ses kapalı' }) } })
+  for (const [k, name] of THEMES) items.push({ text: `Tema: ${name}`, sub: 'komut', go: () => { setTheme(k, true); render() } })
   for (const x of [...S.index.values()].sort((a, b) => b.receivedAt - a.receivedAt))
     items.push({ text: `${x.repo || 'session'} — ${x.title || x.id.slice(-8)}`, sub: `${fmtAgo(serverNow() - x.receivedAt)} · ${fmtCost(x.totals.cost)}`, go: () => openSession(x.id) })
   for (const v of S.views.values()) {
@@ -190,7 +234,7 @@ document.addEventListener('keydown', e => {
 
 // ---------- çizim döngüsü
 let lastRoute = null
-const views = { live: $('view-live'), costs: $('view-costs'), history: $('view-history') }
+const views = { live: $('view-live'), costs: $('view-costs'), history: $('view-history'), auto: $('view-auto'), evren: $('view-evren') }
 function render() {
   const focusKey = document.activeElement?.dataset?.k
   if (S.route !== lastRoute) hideTip()
@@ -203,12 +247,18 @@ function render() {
     renderPickers()
     renderLive()
   } else if (S.route === 'costs') renderCosts()
+  else if (S.route === 'auto') renderAutomations()
+  else if (S.route === 'evren') renderEvren()
   else renderHistory()
   if (focusKey) for (const el of document.querySelectorAll('[data-k]')) if (el.dataset.k === focusKey) { el.focus({ preventScroll: true }); break }
   tick()
 }
 function tick() {
   for (const f of live) f()
+  if (tvBar) {
+    tvBar.firstChild.textContent = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+    tvBar.children[1].textContent = $('ticker').textContent
+  }
   const v = S.views.get(S.sid)
   $('ago').textContent = v ? `son güncelleme ${fmtAgo(serverNow() - v.receivedAt)}` : 'veri bekleniyor'
 }
@@ -217,6 +267,42 @@ narrow.addEventListener('change', () => render())
 initLive({ render, openSession })
 initCosts({ openSession, openAgent: (sid, id) => openSession(sid, id === 'main' ? 'main' : id) })
 initHistory({ openSession })
+initEvren({ openSession })
+
+// ---------- TV modu: başlık gizlenir, canlı session'lar, Evren ve Maliyet 30 sn'de bir döner
+let tv = 0, tvBar = null
+function tvStep(i) {
+  const lives = [...S.index.values()].filter(x => x.live).sort((a, b) => b.receivedAt - a.receivedAt).map(x => ['live', x.id])
+  const stops = [...(lives.length ? lives : [['live', null]]), ['evren'], ['costs']]
+  const [r, sid] = stops[i % stops.length]
+  S.route = r
+  if (r === 'live') {
+    Object.assign(S, { pinned: Boolean(sid), sid: sid ?? S.sid, tid: null, agentId: null, replay: null })
+    if (sid && !S.views.has(sid)) loadSession(sid).then(() => { pickDefault(); render() })
+    pickDefault()
+  }
+  history.replaceState(null, '', r === 'live' ? (sid ? `#canli/${encodeURIComponent(sid)}` : '#canli') : r === 'costs' ? '#maliyet' : '#evren')
+  render()
+}
+function tvStart() {
+  let i = 0
+  document.body.classList.add('tv')
+  document.documentElement.requestFullscreen?.().catch(() => {})
+  tvBar = h('div', { class: 'tv-bar' }, h('span', { class: 'tv-clock num' }), h('span', { class: 'tv-tick num' }),
+    h('button', { type: 'button', class: 'ghost', onclick: tvStop }, 'TV\'den çık'))
+  document.body.append(tvBar)
+  tvStep(i++)
+  tv = setInterval(() => tvStep(i++), 30000)
+}
+function tvStop() {
+  clearInterval(tv)
+  tv = 0
+  tvBar?.remove()
+  document.body.classList.remove('tv')
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+  render()
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && tv) tvStop() })
 
 // ---------- SSE: EventSource kendi deniyorsa bekle; CLOSED olursa önce /api/me, sonra backoff ile yeniden aç
 let es = null, retry = 1000, retryTimer = 0
@@ -259,6 +345,13 @@ function connect() {
       clearTimeout(costTimer)
       costTimer = setTimeout(refreshCosts, 4000) // maliyet ekranı açıksa seyrek tazele
     }
+  })
+  // sunucudaki otomasyon kuralı ateşlendi: panel açıksa burada da göster
+  es.addEventListener('auto', ev => {
+    const d = parse(ev)
+    if (!d) return
+    toast({ type: 'warn', icon: '⚡', text: `${str(d.title)}${d.body ? ' — ' + str(d.body) : ''}` }, S.index.has(d.session) ? d.session : null)
+    refreshAutomations()
   })
   es.onerror = () => {
     if (es.readyState !== EventSource.CLOSED) return setConn('wait', 'yeniden bağlanıyor')

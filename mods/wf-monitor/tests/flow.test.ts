@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
-import { addUsage, fit, graphHit, mask } from '../hooks/register.js'
+import { addUsage, artifactsOf, fit, graphHit, mask } from '../hooks/register.js'
 
 const DIR = '/s/workflows/run1'
 const SCRIPT = `export const meta = {
@@ -105,8 +105,9 @@ function world(on, surfaces, env = {}, rows = ROUND1, repo = { root: '/w/claude-
   on('tool.call', { tool: 'Workflow' }, ($, e) => ({
     result: { status: 'async_launched', taskId: e.tid ?? 't1', workflowName: 'feature', transcriptDir: DIR, scriptPath: DIR + '/script.js' },
   }))
-  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
-  for (const tool of ['Read', 'Grep']) on('tool.call', { tool }, () => ({ result: {} }))
+  on('tool.call', { tool: 'Bash' }, ($, e) => ({ result: { stdout: ctl.bash?.[e.command] ?? '', stderr: '', interrupted: false } }))
+  on('tool.call', { tool: 'mcp__github__create_pull_request' }, () => ({ result: { content: [{ type: 'text', text: '{"html_url":"https://github.com/o/r/pull/7"}' }] } }))
+  for (const tool of ['Read', 'Grep', 'Edit', 'Write']) on('tool.call', { tool }, () => ({ result: {} }))
   on('classic.Stop', () => ({}))
   on('classic.SubagentStop', () => ({}))
   on('turn.start', ($, e) => ({ turnId: e.turnId }))
@@ -700,5 +701,39 @@ describe('wf-monitor', () => {
     addUsage(m, 'k', 'x', { input_tokens: 1, output_tokens: 2, cache_read_input_tokens: 3, cache_creation_input_tokens: 4 })
     addUsage(m, 'k', 'x', null)
     expect(m.get('k')).toEqual({ byModel: { x: { in: 1, out: 2, cr: 3, cw: 4, n: 1 } } })
+  })
+  test('eserler: değişen dosyalar, commit ve PR yakalanır; değişince bir kez gönderilir', async ($, on) => {
+    const { clock, posts, ctl } = world(on, [], POST_ENV)
+    ctl.bash = {
+      'git commit -m "x"': '[claude/busy abc1234] panel: otomasyon\n 3 files changed',
+      'gh pr create --draft': 'https://github.com/o/r/pull/9\n',
+    }
+    await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+    await $.tool.call({ tool: 'Edit', file_path: '/w/a.js' })
+    await $.tool.call({ tool: 'Edit', file_path: '/w/a.js' })
+    await $.tool.call({ tool: 'Write', file_path: '/w/b.js', agentId: 'dev00009' })
+    await $.tool.call({ tool: 'Bash', command: 'git commit -m "x"' })
+    await $.tool.call({ tool: 'Bash', command: 'gh pr create --draft' })
+    await $.tool.call({ tool: 'mcp__github__create_pull_request', title: 't' })
+    await $.tool.call({ tool: 'Bash', command: 'echo https://github.com/o/r/pull/99' })
+    await clock.advance(2100)
+    const a = lastPost(posts).body.art
+    expect(a.files).toEqual([{ p: '/w/a.js', n: 2, t: 1000, by: ['main'] }, { p: '/w/b.js', n: 1, t: 1000, by: ['dev00009'] }])
+    expect(a.commits).toEqual([{ branch: 'claude/busy', sha: 'abc1234', msg: 'panel: otomasyon', t: 1000, by: 'main' }])
+    expect(a.prs.map(x => x.url)).toEqual(['https://github.com/o/r/pull/9', 'https://github.com/o/r/pull/7'])
+    await $.turn.start({ text: 'devam', turnId: 'T9' })
+    await clock.advance(2100)
+    expect(lastPost(posts).body.art).toBeUndefined()
+    await $.tool.call({ tool: 'Edit', file_path: '/w/c.js' })
+    await clock.advance(2100)
+    expect(lastPost(posts).body.art).toEqual({ files: [{ p: '/w/c.js', n: 1, t: 5200, by: ['main'] }], commits: [], prs: [] })
+  })
+
+  test('artifactsOf: hata sonucu ve commit olmayan çıktı eser değildir', async () => {
+    expect(artifactsOf({ tool: 'Edit', file_path: '/a' }, { isError: true, result: 'x' })).toEqual({ files: [], commits: [], prs: [] })
+    expect(artifactsOf({ tool: 'Bash', command: 'git commit' }, { result: { stdout: 'nothing to commit' } }).commits).toEqual([])
+    expect(artifactsOf({ tool: 'mcp__github__list_pull_requests' }, { result: 'https://github.com/x/y/pull/1' }).prs).toEqual([])
+    expect(artifactsOf({ tool: 'Bash', command: 'git commit -m x' }, { result: { stdout: '[detached HEAD 89abcde] wip' } }).commits).toEqual([{ branch: 'detached HEAD', sha: '89abcde', msg: 'wip' }])
+    expect(artifactsOf({ tool: 'Bash', command: 'git commit --amend' }, { result: { stdout: '[main 0123abc] fix' } }).commits).toEqual([{ branch: 'main', sha: '0123abc', msg: 'fix' }])
   })
 })
