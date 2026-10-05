@@ -26,15 +26,12 @@ cp "$DIR"/agents/*.md ~/.claude/agents/ && echo "OK: agents" >> $LOG || echo "FA
 mkdir -p ~/.claude/workflows
 cp "$DIR"/workflows/*.js ~/.claude/workflows/ && echo "OK: workflows" >> $LOG || echo "FAIL: workflows" >> $LOG
 
-# agentmemory (deneme): kalıcı ortak bellek. Yalnız ortamda AGENTMEMORY_URL tanımlıysa kurulur; sunucu Coolify'da
-# (rohitg00/agentmemory, deploy/coolify), session'lar oraya yazar/okur. Bağlama otomatik enjeksiyon için
-# AGENTMEMORY_INJECT_CONTEXT=true; yoksa bellek yalnız MCP araçlarıyla okunur.
-if [ -n "$AGENTMEMORY_URL" ]; then
-  claude plugin marketplace add rohitg00/agentmemory >> $LOG 2>&1 && claude plugin install agentmemory@agentmemory >> $LOG 2>&1 \
-    && echo "OK: agentmemory ($AGENTMEMORY_URL)" >> $LOG || echo "FAIL: agentmemory" >> $LOG
-else
-  echo "SKIP: agentmemory (AGENTMEMORY_URL yok)" >> $LOG
-fi
+# agentmemory (deneme): kalıcı ortak bellek; sunucu Coolify'da (rohitg00/agentmemory, deploy/coolify).
+# Her zaman kurulur: ortam env'leri (AGENTMEMORY_URL/SECRET, isteğe bağlı AGENTMEMORY_INJECT_CONTEXT=true)
+# setup script sırasında tanımlı değil, eklentinin hook'ları onları çalışma anında okur. URL yoksa hook'lar
+# localhost'u dener ve sessizce vazgeçer.
+claude plugin marketplace add rohitg00/agentmemory >> $LOG 2>&1 && claude plugin install agentmemory@agentmemory >> $LOG 2>&1 \
+  && echo "OK: agentmemory" >> $LOG || echo "FAIL: agentmemory" >> $LOG
 
 # Mod'lar: CLAUDE_CODE_PLUGIN_DIRS ile yüklenir (aşağıdaki settings bloğu)
 mkdir -p ~/.claude/mods
