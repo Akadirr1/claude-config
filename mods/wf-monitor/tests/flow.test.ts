@@ -724,12 +724,16 @@ describe('wf-monitor', () => {
     await $.turn.start({ text: 'devam', turnId: 'T9' })
     await clock.advance(2100)
     expect(lastPost(posts).body.art).toBeUndefined()
+    await $.tool.call({ tool: 'Edit', file_path: '/w/c.js' })
+    await clock.advance(2100)
+    expect(lastPost(posts).body.art).toEqual({ files: [{ p: '/w/c.js', n: 1, t: 5200, by: ['main'] }], commits: [], prs: [] })
   })
 
   test('artifactsOf: hata sonucu ve commit olmayan çıktı eser değildir', async () => {
     expect(artifactsOf({ tool: 'Edit', file_path: '/a' }, { isError: true, result: 'x' })).toEqual({ files: [], commits: [], prs: [] })
     expect(artifactsOf({ tool: 'Bash', command: 'git commit' }, { result: { stdout: 'nothing to commit' } }).commits).toEqual([])
     expect(artifactsOf({ tool: 'mcp__github__list_pull_requests' }, { result: 'https://github.com/x/y/pull/1' }).prs).toEqual([])
+    expect(artifactsOf({ tool: 'Bash', command: 'git commit -m x' }, { result: { stdout: '[detached HEAD 89abcde] wip' } }).commits).toEqual([{ branch: 'detached HEAD', sha: '89abcde', msg: 'wip' }])
     expect(artifactsOf({ tool: 'Bash', command: 'git commit --amend' }, { result: { stdout: '[main 0123abc] fix' } }).commits).toEqual([{ branch: 'main', sha: '0123abc', msg: 'fix' }])
   })
 })

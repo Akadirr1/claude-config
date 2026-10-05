@@ -153,10 +153,6 @@ export function fit(body) {
     }
     if (!over()) return s
   }
-  if (body.art) {
-    body.art.files = body.art.files.slice(-50)
-    if (!over()) return s
-  }
   const drop = list => {
     for (let i = list.length - 1; i >= 0 && over(); i--) if (list[i].status !== 'running') list.splice(i, 1)
   }
@@ -214,7 +210,7 @@ function describe(e) {
 
 // Araç sonucundan eser: Edit/Write → dosya; git commit çıktısı → commit; gh/MCP çıktısındaki PR bağlantısı → PR
 const EDITS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
-const COMMIT = /^\[([^\]\s]{1,200})(?: \([^)]{1,40}\))? ([0-9a-f]{7,40})\] (.{0,300})$/m
+const COMMIT = /^\[([^\]]{1,200}?)(?: \([^)]{1,40}\))? ([0-9a-f]{7,40})\] (.{0,300})$/m // "detached HEAD" dahil
 const PR_URL = /https:\/\/github\.com\/[\w.-]{1,100}\/[\w.-]{1,100}\/pull\/\d{1,9}/g
 function outText(res) {
   const r = res?.result
@@ -254,11 +250,21 @@ function addArtifacts(key, e, res, t) {
   }
   for (const c of a.commits) art.commits.set(c.sha, { ...c, t, by })
   for (const u of a.prs) if (!art.prs.has(u)) art.prs.set(u, { url: u, t, by })
-  for (const [m, n] of [[art.files, MAX_ART_FILES], [art.commits, MAX_ART_COMMITS], [art.prs, MAX_ART_PRS]])
-    while (m.size > n) m.delete(m.keys().next().value)
+  for (const [m, n, pre] of [[art.files, MAX_ART_FILES, 'af:'], [art.commits, MAX_ART_COMMITS, 'ac:'], [art.prs, MAX_ART_PRS, 'ap:']])
+    while (m.size > n) {
+      const k = m.keys().next().value
+      m.delete(k)
+      sent.delete(pre + k)
+    }
   if (a.files.length || a.commits.length || a.prs.length) touch()
 }
-const viewArt = () => ({ files: [...art.files.values()], commits: [...art.commits.values()], prs: [...art.prs.values()] })
+// Eserler delta gider: sunucu anahtarla birleştirir; push başına en fazla ART_PUSH değişmiş girdi
+const ART_PUSH = 60
+const artItems = () => [
+  ...[...art.files.values()].map(v => ['af:' + v.p, 'files', v]),
+  ...[...art.commits.values()].map(v => ['ac:' + v.sha, 'commits', v]),
+  ...[...art.prs.values()].map(v => ['ap:' + v.url, 'prs', v]),
+]
 
 function since(ms) {
   const s = Math.max(0, Math.round(ms / 1000))
@@ -433,22 +439,21 @@ async function push() {
   const runEnts = [...runs.values()].map(r => ent('r:' + r.taskId, view(r)))
   const subEnts = [...subs.values()].filter(x => !wf.has(x.id)).map(x => ent('s:' + x.id, viewSub(x)))
   const mainEnt = ent('main', viewMain())
-  const artEnt = ent('art', viewArt())
-  const artP = sent.get('art') !== artEnt.sig
+  const artP = artItems().map(([k, kind, v]) => ({ ...ent(k, v), kind })).filter(e => sent.get(e.key) !== e.sig).slice(0, ART_PUSH)
   const runP = pending(runEnts, MAX_RUNS)
   const subP = pending(subEnts, MAX_SUBS_PUSH)
-  const changed = runP.length || subP.length || sent.get('main') !== mainEnt.sig || artP
+  const changed = runP.length || subP.length || sent.get('main') !== mainEnt.sig || artP.length
   // değişiklik yoksa yalnız iş sürerken heartbeat (panel "son güncelleme"yi taze tutar)
   if (!changed && (!active() || nowMs - lastPushAt < HEARTBEAT_MS)) return
   const body = {
     v: 3, session: host.session, epoch, sentAt: nowMs,
     main: mainEnt.v, misc: { usage: maskDeep(miscUsage()) },
     subs: subP.map(e => e.v), runs: runP.map(e => e.v),
-    ...(artP && { art: artEnt.v }),
+    ...(artP.length && { art: { files: artP.filter(e => e.kind === 'files').map(e => e.v), commits: artP.filter(e => e.kind === 'commits').map(e => e.v), prs: artP.filter(e => e.kind === 'prs').map(e => e.v) } }),
   }
   const s = fit(body)
-  const keys = new Map([...runP, ...subP, mainEnt, artEnt].map(e => [e.key, e.sig]))
-  const kept = ['main', ...(body.art ? ['art'] : []), ...body.runs.map(r => 'r:' + r.taskId), ...body.subs.map(x => 's:' + x.id)]
+  const keys = new Map([...runP, ...subP, mainEnt, ...artP].map(e => [e.key, e.sig]))
+  const kept = ['main', ...artP.map(e => e.key), ...body.runs.map(r => 'r:' + r.taskId), ...body.subs.map(x => 's:' + x.id)]
   pushing = true
   lastPushAt = nowMs
   const ok = await host.post(s).then(res => res?.ok === true, () => false)
@@ -469,7 +474,7 @@ const pushSoon = () => void push().catch(() => {})
 function undelivered() {
   if (!host?.post) return false
   if (sent.get('main') !== sigs.get('main')) return true
-  if (sigs.has('art') && sent.get('art') !== sigs.get('art')) return true
+  for (const [k] of artItems()) if (!delivered(k)) return true
   for (const r of runs.values()) if (!delivered('r:' + r.taskId)) return true
   for (const x of subs.values()) if (!delivered('s:' + x.id)) return true
   return false
