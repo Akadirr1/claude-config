@@ -1,7 +1,9 @@
 // wf-monitor: session'daki bütün agentic işi izler — orkestratör (ana döngü), Agent aracıyla doğan
 // alt agent'lar ve dynamic workflow run'ları — ve her birinin model bazında token kullanımını sayar.
 // Veri kaynakları:
-//   - turn.step (her model isteği, agentId ile): token kullanımı ve model; turn.start/turn.complete: orkestratör turu
+//   - turn.step (her model isteği, agentId ile): token kullanımı ve model, istek başına bağlam serisi
+//     (bağlam = input + cache read + cache write; iki istek arasındaki araç çağrıları noktaya yazılır);
+//     turn.start/turn.complete: orkestratör turu
 //   - agent.spawn: alt agent'ın doğumu (açıklama, tip, model, prompt başı, ebeveyn)
 //   - Workflow tool sonucu: taskId, workflowName, transcriptDir, scriptPath
 //   - transcriptDir/journal.jsonl: launched / started / result / failed satırları (sıra → dalga, result → biten)
@@ -23,6 +25,7 @@ const MAX_RUNS = 10 // payload'da ve bellekte tutulan bitmiş run sayısı
 const MAX_SUBS = 200 // bellekte tutulan bitmiş alt agent sayısı
 const MAX_SUBS_PUSH = 40 // bir push'taki alt agent sayısı (kalanlar sonraki push'ta)
 const MAX_MAIN_STEPS = 40
+const MAX_SERIES = 120 // agent başına istek noktası (ilk nokta hep kalır)
 const MAX_ART_FILES = 300
 const MAX_ART_COMMITS = 100
 const MAX_ART_PRS = 30
@@ -37,6 +40,8 @@ const stepLog = new Map() // agentId -> { first, list: {t, text}[] }
 const usage = new Map() // 'main' | agentId -> { byModel: { model: { in, out, cr, cw, n } } }
 const toolMix = new Map() // 'main' | agentId -> { araç: sayı }
 const graphUse = new Map() // 'main' | agentId -> { g: graphify çağrısı, r: Read/Grep/Glob }
+const series = new Map() // 'main' | agentId -> { t, c: bağlam, o: çıkış, r: cache read, w: cache write, x: araçlar }[]
+const between = new Map() // 'main' | agentId -> son istekten beri çağrılan araçlar
 const sent = new Map() // varlık anahtarı -> sunucuya teslim edilen imza
 const art = { files: new Map(), commits: new Map(), prs: new Map() } // session'ın eserleri: değişen dosya, commit, PR
 const main = { status: 'idle', since: 0, tool: null, goal: '', turns: 0, answer: '', model: null, steps: [] }
@@ -146,9 +151,13 @@ export function fit(body) {
   if (!over()) return s
   const agents = () => [...body.subs, ...body.runs.flatMap(r => r.agents)]
   for (const n of [3, 0]) {
-    if (body.main) body.main.steps = body.main.steps.slice(-Math.max(n, 5))
+    if (body.main) {
+      body.main.steps = body.main.steps.slice(-Math.max(n, 5))
+      if (body.main.series) body.main.series = body.main.series.slice(-(n ? 40 : 10))
+    }
     for (const a of agents()) {
       a.steps = n ? a.steps.slice(-n) : []
+      if (a.series) a.series = a.series.slice(-(n ? 40 : 10))
       if (!n) a.result = null
     }
     if (!over()) return s
@@ -193,6 +202,9 @@ export function graphHit(e) {
 }
 
 function countTool(key, e) {
+  const xs = between.get(key) ?? between.set(key, []).get(key)
+  if (xs.length < 4) xs.push(short(String(describe(e)).slice(0, 400), 70))
+  else xs[3] = `+${xs.length - 3 + 1} araç daha`
   const mix = toolMix.get(key) ?? toolMix.set(key, {}).get(key)
   const name = clip(String(e.tool ?? '?'), 60)
   if (Object.keys(mix).length < 40 || mix[name]) mix[name] = (mix[name] ?? 0) + 1
@@ -265,6 +277,17 @@ const artItems = () => [
   ...[...art.commits.values()].map(v => ['ac:' + v.sha, 'commits', v]),
   ...[...art.prs.values()].map(v => ['ap:' + v.url, 'prs', v]),
 ]
+
+// İstek noktası: bağlam büyüklüğü ve önceki istekten beri çağrılan araçlar (bağlamı kim şişirdi)
+export function addPoint(key, u, t) {
+  if (!u) return
+  const n = k => (Number.isFinite(u[k]) ? u[k] : 0)
+  const list = series.get(key) ?? series.set(key, []).get(key)
+  const xs = between.get(key) ?? []
+  list.push({ t, c: n('input_tokens') + n('cache_read_input_tokens') + n('cache_creation_input_tokens'), o: n('output_tokens'), r: n('cache_read_input_tokens'), w: n('cache_creation_input_tokens'), x: xs.length < 4 ? xs : xs.slice(0, 4) })
+  between.delete(key)
+  if (list.length > MAX_SERIES) list.splice(1, 1)
+}
 
 function since(ms) {
   const s = Math.max(0, Math.round(ms / 1000))
@@ -362,6 +385,8 @@ function prune() {
     usage.delete(id)
     toolMix.delete(id)
     graphUse.delete(id)
+    series.delete(id)
+    between.delete(id)
   }
   const doneRuns = [...runs.values()].filter(r => r.status !== 'running' && (delivered('r:' + r.taskId) || !host?.post) && !rechecking(r))
   for (const r of doneRuns.slice(0, -MAX_RUNS)) {
@@ -387,7 +412,7 @@ function trimLog() {
 function viewMain() {
   return {
     startedAt: epoch, status: main.status, since: main.since, tool: main.tool, goal: main.goal, turns: main.turns, answer: main.answer,
-    model: main.model, steps: main.steps.slice(), usage: usage.get('main') ?? null,
+    model: main.model, steps: main.steps.slice(), usage: usage.get('main') ?? null, series: (series.get('main') ?? []).slice(),
     tools: toolMix.get('main') ?? {}, graph: graphUse.get('main') ?? { g: 0, r: 0 },
   }
 }
@@ -400,6 +425,7 @@ function viewSub(x) {
     status: x.status, startedAt: x.startedAt, endedAt: x.endedAt, background: x.background,
     steps: log ? log.list.slice() : [], result: x.result,
     usage: usage.get(x.id) ?? null, tools: toolMix.get(x.id) ?? {}, graph: graphUse.get(x.id) ?? { g: 0, r: 0 },
+    series: (series.get(x.id) ?? []).slice(),
   }
 }
 
@@ -507,6 +533,7 @@ function view(r) {
       usage: usage.get(a.id) ?? null,
       tools: toolMix.get(a.id) ?? {},
       graph: graphUse.get(a.id) ?? { g: 0, r: 0 },
+      series: (series.get(a.id) ?? []).slice(),
     }
   })
   return {
@@ -841,6 +868,7 @@ export function register(on) {
     const r = yield* next(e)
     try {
       addUsage(usage, key, e.model, r?.usage)
+      addPoint(key, r?.usage, await $.clock.now())
       touch()
     } catch {}
     return r
