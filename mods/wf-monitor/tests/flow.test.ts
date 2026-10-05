@@ -665,6 +665,7 @@ describe('wf-monitor', () => {
     expect(JSON.stringify(m)).not.toContain('hunter2')
     expect(m.ctx.jumps[0]).toEqual({ d: 5000, x: expect.stringContaining('+7 araç daha') })
     expect(m.ctx.peak).toBe(205010)
+    expect(m.ctx.base).toBe(10)
     expect(m.ctx.byTool.Bash).toBe(500)
     expect(m.ctx.byTool.Read).toBe(4500)
     expect(m.series.length).toBe(120)

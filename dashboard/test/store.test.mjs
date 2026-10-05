@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { classify } from '../public/classes.js'
 import { costOf, modelKey } from '../public/pricing.js'
-import { stats, merge, view, summary, bloatOf, runsOf } from '../store.mjs'
+import { stats, merge, view, summary, bloatOf, runsOf, rows } from '../store.mjs'
 
 test('sınıflandırma: Claude\'un serbest label/tipleri genel sınıflara oturur', () => {
   const cases = [
@@ -118,4 +118,26 @@ test('token analizi: cache israfı, sınıf bazında graf karnesi, şişiren ara
   assert.deepEqual(runs.map(x => x.runId), ['t2', 't1'])
   assert.equal(runs[1].agents.length, 2)
   assert.equal(runs[1].agents[0].phase, 'Geliştirme')
+})
+
+test('deneyler: etiketli session\'lar etiket başına ortancalanır; taban ve etiket satırda', () => {
+  const now = Date.UTC(2026, 9, 5, 12)
+  const r = (sid, tag, kind, extra) => ({ sid, repo: 'o/r', tag, kind, id: kind === 'main' ? 'main' : sid + 'x', label: 'a', cls: 'dev', status: 'done', start: now - 60e3, end: now, in: 0, out: 100, cr: 1000, cw: 100, n: 2, cost: 0, g: 0, r: 0, peak: 1000, base: 500, jumps: [], bt: {}, ...extra })
+  const rs = [
+    r('a', 'grafli', 'main', { cr: 5000, g: 2 }), r('a', 'grafli', 'sub', { g: 1 }),
+    r('b', 'grafsiz', 'main', { cr: 9000, r: 3 }), r('b', 'grafsiz', 'sub', { r: 2 }),
+    r('c', '', 'main', {}),
+  ]
+  const ex = stats(rs, { days: 7, now }).experiments
+  assert.deepEqual(ex.map(x => [x.tag, x.sessions]), [['grafli', 1], ['grafsiz', 1]])
+  assert.equal(ex[0].tok, 5200 + 1200)
+  assert.equal(ex[0].graph, 1)
+  assert.equal(ex[1].graph, 0)
+  assert.ok(ex[1].mainShare > 0.8)
+  const rec = merge(null, { v: 3, session: { id: 't', repo: 'o/r', tag: 'grafsiz' }, epoch: 1, sentAt: 1, runs: [], subs: [{ id: 's', ctx: { base: 42000, peak: 50000 } }] }, 1)
+  assert.equal(rec.tag, 'grafsiz')
+  const rw = rows(view(rec))
+  assert.equal(rw.find(x => x.id === 's').base, 42000)
+  assert.equal(rw[0].tag, 'grafsiz')
+  assert.equal(merge(null, { v: 3, session: { id: 'u', repo: 'o/r', tag: '<script>' }, runs: [] }, 1).tag, undefined)
 })

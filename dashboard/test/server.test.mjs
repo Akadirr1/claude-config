@@ -429,7 +429,7 @@ test('analiz ve CSV: sınıf/model/gün kırılımı, graphify karşılaştırma
   assert.deepEqual(st.repos, ['o/r'])
   assert.ok(st.byClass.find(x => x.key === 'dev'))
   const csv = await (await s.req('/api/export.csv?days=0', { headers: { Cookie: c } })).text()
-  assert.match(csv.split('\n')[0], /^sid,repo,kind/)
+  assert.match(csv.split('\n')[0], /^sid,repo,tag,kind/)
   assert.match(csv, /'=HYPERLINK/, 'formül hücresi kaçışlanır')
 })
 

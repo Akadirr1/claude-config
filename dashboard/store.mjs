@@ -70,6 +70,8 @@ export function merge(prev, raw, receivedAt) {
   const rec = prev ?? { id: body.session.id, firstAt: receivedAt, mains: {}, misc: {}, subs: {}, runs: {} }
   rec.repo = str(body.session.repo, 200) || rec.repo || ''
   if (typeof body.session.branch === 'string') rec.branch = str(body.session.branch, 200)
+  // ölçüm deneyi etiketi (mod, ilk mesajdaki [deney:ad]'dan)
+  if (typeof body.session.tag === 'string' && /^[a-z0-9-]{1,30}$/.test(body.session.tag)) rec.tag = body.session.tag
   rec.receivedAt = receivedAt
   rec.sentAt = Number.isFinite(body.sentAt) ? body.sentAt : receivedAt
   const epoch = String(num(body.epoch))
@@ -142,7 +144,7 @@ export function view(rec, prices = PRICES) {
     .map(r => ({ ...r, agents: (Array.isArray(r.agents) ? r.agents : []).filter(isObj).map(a => dress(a)) }))
     .sort((a, b) => num(a.startedAt) - num(b.startedAt))
   const misc = tally(miscUsage, prices)
-  return { id: rec.id, repo: rec.repo, branch: rec.branch, firstAt: rec.firstAt, receivedAt: rec.receivedAt, sentAt: rec.sentAt, main, subs, runs, misc, art: artView(rec.art), totals: totals(main, subs, runs, misc) }
+  return { id: rec.id, repo: rec.repo, branch: rec.branch, tag: rec.tag ?? '', firstAt: rec.firstAt, receivedAt: rec.receivedAt, sentAt: rec.sentAt, main, subs, runs, misc, art: artView(rec.art), totals: totals(main, subs, runs, misc) }
 }
 
 function totals(main, subs, runs, misc) {
@@ -188,6 +190,7 @@ function cleanCtx(a) {
   if (isObj(a.ctx)) {
     const bt = Object.entries(isObj(a.ctx.byTool) ? a.ctx.byTool : {}).map(([k, v]) => [str(k, 60), tokN(v)]).filter(([k, v]) => k && v).sort((x, y) => y[1] - x[1]).slice(0, 20)
     a.ctx = {
+      base: tokN(a.ctx.base),
       peak: tokN(a.ctx.peak),
       byTool: Object.assign(Object.create(null), Object.fromEntries(bt)),
       jumps: (Array.isArray(a.ctx.jumps) ? a.ctx.jumps : []).filter(isObj).slice(0, 3).map(j => ({ d: tokN(j.d), x: str(j.x, 300) })),
@@ -198,12 +201,14 @@ function cleanCtx(a) {
 // Şişme özeti: mod'un bütün istekler üzerinden tuttuğu ctx varsa o (seri kırpılsa da doğru); yoksa seriden.
 // Seride sıçrama = bağlam artışı − önceki çıkış; aradaki araçlara bölünür; inceltilmiş boşluk (i atlaması) sayılmaz.
 export function bloatOf(series, ctx) {
-  const out = { peak: 0, jumps: [], byTool: Object.create(null) }
+  const out = { base: 0, peak: 0, jumps: [], byTool: Object.create(null) }
   const pts = (Array.isArray(series) ? series : []).slice(-MAX_SERIES).filter(isObj)
     .map(p => ({ i: tokN(p.i), c: tokN(p.c), o: tokN(p.o), x: Array.isArray(p.x) ? p.x.filter(x => typeof x === 'string').slice(0, 4).map(x => str(x, 80)) : [] }))
   for (const p of pts) out.peak = Math.max(out.peak, p.c)
+  if (pts[0] && (!pts[0].i || pts[0].i === 1)) out.base = pts[0].c // taban: ilk istekteki bağlam
   if (isObj(ctx)) {
     out.peak = Math.max(out.peak, tokN(ctx.peak))
+    if (tokN(ctx.base)) out.base = tokN(ctx.base)
     for (const [k, v] of Object.entries(isObj(ctx.byTool) ? ctx.byTool : {}).slice(0, 20)) if (tokN(v)) out.byTool[str(k, 60)] = tokN(v)
     out.jumps = (Array.isArray(ctx.jumps) ? ctx.jumps : []).filter(isObj).slice(0, 3).map(j => ({ d: tokN(j.d), x: str(j.x, 300) }))
     return out
@@ -233,7 +238,8 @@ export function rows(v) {
       sid: v.id, repo: v.repo, kind, id: a.id ?? 'main', label: str(a.label, 120) || (kind === 'main' ? 'Şef' : '?'), cls: a.cls,
       agentType: str(a.agentType, 80), model: a.model ?? '', status: a.status ?? '', start: ts(a.startedAt), end: ts(a.endedAt),
       in: t.in, out: t.out, cr: t.cr, cw: t.cw, n: t.n, cost: t.cost, g: num(a.graph?.g), r: num(a.graph?.r), ...extra,
-      ...(({ peak, jumps, byTool }) => ({ peak, jumps, bt: byTool }))(bloatOf(a.series, a.ctx)),
+      ...(({ base, peak, jumps, byTool }) => ({ base, peak, jumps, bt: byTool }))(bloatOf(a.series, a.ctx)),
+      tag: v.tag ?? '',
     })
   }
   if (v.main) row('main', v.main, { start: ts(v.main.startedAt) || v.firstAt, end: v.receivedAt, status: v.main.status ?? '' })
@@ -252,7 +258,7 @@ function span(v) {
 
 export function summary(v) {
   return {
-    id: v.id, repo: v.repo, branch: v.branch, firstAt: v.firstAt, receivedAt: v.receivedAt, ...span(v),
+    id: v.id, repo: v.repo, branch: v.branch, tag: v.tag, firstAt: v.firstAt, receivedAt: v.receivedAt, ...span(v),
     title: str(v.main?.goal, 160), model: v.main?.model ?? null, status: v.main?.status ?? null,
     live: running(v), totals: { ...v.totals, byModel: undefined },
     runs: v.runs.map(r => ({ taskId: r.taskId, name: str(r.name, 120), status: r.status, startedAt: r.startedAt, endedAt: r.endedAt })),
@@ -372,7 +378,29 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
     ...g,
     runs: new Set(rs.filter(r => r.run === g.key).map(r => r.runId)).size,
   }))
+  // Deneyler: etiketli session'lar (ör. grafli / grafsiz) session bazında toplanıp etiket başına ortancalanır
+  const bySess = new Map()
+  for (const r of rs) {
+    if (!r.tag) continue
+    const e = bySess.get(r.sid) ?? bySess.set(r.sid, { sid: r.sid, tag: r.tag, tok: 0, in: 0, out: 0, cr: 0, cw: 0, n: 0, agents: 0, main: 0, g: 0, r: 0, peak: 0, start: r.start || r.end }).get(r.sid)
+    const tk = r.in + r.out + r.cr + r.cw
+    e.tok += tk
+    for (const k of ['in', 'out', 'cr', 'cw', 'n', 'g', 'r']) e[k] += r[k]
+    if (r.kind === 'main') e.main += tk
+    else e.agents++
+    e.peak = Math.max(e.peak, r.peak ?? 0)
+  }
+  const experiments = [...new Set([...bySess.values()].map(x => x.tag))].map(tag => {
+    const xs = [...bySess.values()].filter(x => x.tag === tag)
+    const med = f => median(xs.map(f))
+    return {
+      tag, sessions: xs.length, tok: med(x => x.tok), cw: med(x => x.cw), out: med(x => x.out), cr: med(x => x.cr), n: med(x => x.n),
+      agents: med(x => x.agents), peak: med(x => x.peak), mainShare: med(x => (x.tok ? x.main / x.tok : 0)), graph: med(x => (x.g + x.r ? x.g / (x.g + x.r) : 0)),
+      list: xs.sort((a, b) => b.start - a.start).slice(0, 20).map(({ sid, tok, n, agents }) => ({ sid, tok, n, agents })),
+    }
+  }).sort((a, b) => a.tag.localeCompare(b.tag))
   return {
+    experiments,
     range: { days, repo, from, now, tz },
     totals: { ...t, cacheHit: t.in + t.cr + t.cw ? t.cr / (t.in + t.cr + t.cw) : 0 },
     byDay, heat,
@@ -396,7 +424,7 @@ export function runsOf(allRows, name) {
   return [...m.values()].map(e => ({ ...e, startedAt: Number.isFinite(e.startedAt) ? e.startedAt : 0 })).sort((a, b) => b.startedAt - a.startedAt).slice(0, 30)
 }
 
-const CSV_COLS = ['sid', 'repo', 'kind', 'run', 'phase', 'id', 'label', 'cls', 'agentType', 'model', 'status', 'start', 'end', 'in', 'out', 'cr', 'cw', 'peak', 'n', 'cost', 'g', 'r']
+const CSV_COLS = ['sid', 'repo', 'tag', 'kind', 'run', 'phase', 'id', 'label', 'cls', 'agentType', 'model', 'status', 'start', 'end', 'in', 'out', 'cr', 'cw', 'base', 'peak', 'n', 'cost', 'g', 'r']
 // Hücre başındaki = + - @ formül olarak çalışmasın (CSV enjeksiyonu)
 const cell = v => {
   let s = v == null ? '' : typeof v === 'number' ? String(Math.round(v * 1e6) / 1e6) : String(v)

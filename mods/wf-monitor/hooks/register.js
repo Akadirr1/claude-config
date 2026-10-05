@@ -312,7 +312,7 @@ export function addPoint(key, u, t) {
   }
   list.push(p)
   if (list.length > MAX_SERIES) list.splice(1, 1)
-  const g = ctxAgg.get(key) ?? ctxAgg.set(key, { peak: 0, byTool: {}, jumps: [] }).get(key)
+  const g = ctxAgg.get(key) ?? ctxAgg.set(key, { base: p.c, peak: 0, byTool: {}, jumps: [] }).get(key)
   g.peak = Math.max(g.peak, p.c)
   const d = prev ? p.c - prev.c - prev.o : 0
   if (d > 0 && b?.n) {
@@ -328,7 +328,7 @@ export function addPoint(key, u, t) {
 }
 const ctxOf = key => {
   const g = ctxAgg.get(key)
-  return g ? { peak: g.peak, byTool: { ...g.byTool }, jumps: g.jumps.slice() } : null
+  return g ? { base: g.base, peak: g.peak, byTool: { ...g.byTool }, jumps: g.jumps.slice() } : null
 }
 
 function since(ms) {
