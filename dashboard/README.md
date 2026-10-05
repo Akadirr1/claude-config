@@ -27,9 +27,15 @@ Cloud ortamında (setup script'i `install.sh` çalıştıran) `WF_MONITOR_URL=ht
 - **Canlı:** Şef kartı (hedef, durum, araç karışımı, graf-önce oranı), takımyıldız (Şef ve doğurduğu
   agent/run'lar), seçili workflow'un phase × tur grafiği (zaman yolculuğu, kritik yol, paralellik, benzer
   run'ların ortalama maliyeti), oturum geneli zaman çubukları, olay akışı (doğum, devir, bitiş, hata, uyarı).
-- **Maliyet:** aralık ve repo filtresi; günlük maliyet (sınıflara göre), sınıf/model/repo kırılımı,
-  graphify etkisi (grafı kullanan vs dosya tarayan agent'ların ortalama giriş tokeni ve maliyeti),
-  en pahalı agent'lar, workflow başına maliyet, 12 haftalık ritim, CSV defter.
+- **Token** (birim düğmesi `tok`/`$`; varsayılan token): aralık ve repo filtresi; giriş / cache yazma / cache okuma /
+  çıkış ayrı; günlük token (sınıflara göre), sınıf/model/repo kırılımı ve cache isabeti, **graphify karnesi**
+  (sınıf bazında grafı kullanan vs dosya tarayan agent'ların ortanca bağlam tokeni), **bağlamı kim şişirdi** (iki
+  model isteği arasındaki bağlam artışı aradaki araç çağrılarına yazılır; araç adına göre toplam ve en büyük
+  sıçramalar), **cache israfı** (cache'e yazıp geri okumayan agent'lar), en çok token yakan agent'lar, workflow başına
+  token, 12 haftalık ritim, CSV defter (zirve bağlam ve phase sütunlarıyla).
+- **Canlı → agent detayı:** token kırılımı, cache isabeti, cache israfı uyarısı ve **bağlam eğrisi** (her model
+  isteğinde bağlam büyüklüğü, cache okuma payı, en büyük sıçramalar ve öncesindeki araç çağrıları).
+- **Canlı → karşılaştır:** seçili workflow run'ını aynı adlı başka bir run'la phase/agent bazında token farkıyla yan yana.
 - **Canlı → Eserler:** session'ın açtığı PR'lar, commit'ler ve değişen dosyalar; her birinin yanında onu üreten agent.
 - **Geçmiş:** bütün session'lar; sıralama, arama, sınıf karışımı şeridi.
 - **Evren:** bütün defter tek gökyüzünde. Her session bir yıldız (merkez en eski, dış kollar en yeni;

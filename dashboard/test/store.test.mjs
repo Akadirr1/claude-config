@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { classify } from '../public/classes.js'
 import { costOf, modelKey } from '../public/pricing.js'
-import { stats, merge, view, summary } from '../store.mjs'
+import { stats, merge, view, summary, bloatOf, runsOf } from '../store.mjs'
 
 test('sınıflandırma: Claude\'un serbest label/tipleri genel sınıflara oturur', () => {
   const cases = [
@@ -61,4 +61,35 @@ test('eserler: epoch\'lar arası birleşir, PR yalnız github pull bağlantısı
   assert.deepEqual(v.art.commits.map(c => c.sha), ['abc1234'])
   assert.deepEqual(v.art.prs.map(x => x.url), ['https://github.com/o/r/pull/3'])
   assert.deepEqual(summary(v).art, { files: 1, commits: 1, prs: ['https://github.com/o/r/pull/3'] })
+})
+
+test('bağlam şişmesi: önceki çıkış düşülür, artış aradaki araçlara bölünür', () => {
+  const b = bloatOf([{ c: 1000, o: 200, x: [] }, { c: 41200, o: 50, x: ['Read: big.js', 'Grep: x'] }, { c: 41300, o: 10, x: ['Bash: ls'] }, { c: 40000, o: 0, x: ['Read: y'] }, 'çöp', { c: 'x' }])
+  assert.equal(b.peak, 41300)
+  assert.deepEqual(b.jumps[0], { d: 40000, x: 'Read: big.js · Grep: x' })
+  assert.deepEqual(b.byTool, { Read: 20000, Grep: 20000, Bash: 50 })
+  assert.deepEqual(bloatOf(undefined), { peak: 0, jumps: [], byTool: {} })
+})
+
+test('token analizi: cache israfı, sınıf bazında graf karnesi, şişiren araçlar, run karşılaştırma', () => {
+  const now = Date.UTC(2026, 9, 5, 12)
+  const r = (id, extra) => ({ sid: 's', repo: 'o/r', kind: 'wf', run: 'feature', runId: 't1', phase: 'Geliştirme', round: 1, id, label: id, cls: 'dev', status: 'done', start: now - 3600e3, end: now, in: 1000, out: 100, cr: 0, cw: 0, n: 1, cost: 0.1, g: 0, r: 2, peak: 5000, jumps: [], bt: {}, ...extra })
+  const rs = [
+    r('a', { cw: 50000, cr: 1000, bt: { Read: 30000 }, jumps: [{ d: 30000, x: 'Read: big.js' }] }),
+    r('b', { g: 3, in: 400, cr: 9000, peak: 3000 }),
+    r('c', { runId: 't2', start: now - 600e3, in: 2000 }),
+  ]
+  const st = stats(rs, { days: 7, now })
+  assert.deepEqual(st.cacheWaste.map(x => x.id), ['a'])
+  assert.equal(st.bloat.byTool[0].tool, 'Read')
+  assert.equal(st.bloat.jumps[0].label, 'a')
+  const dev = st.graphify.byClass.find(x => x.cls === 'dev')
+  assert.equal(dev.with.n, 1)
+  assert.equal(dev.without.n, 2)
+  assert.equal(st.topTok[0].id, 'a')
+  assert.ok(st.byDay.at(-1).byClassTok.dev > 0)
+  const runs = runsOf(rs, 'feature')
+  assert.deepEqual(runs.map(x => x.runId), ['t2', 't1'])
+  assert.equal(runs[1].agents.length, 2)
+  assert.equal(runs[1].agents[0].phase, 'Geliştirme')
 })

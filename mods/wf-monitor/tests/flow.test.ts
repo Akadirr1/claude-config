@@ -625,6 +625,23 @@ describe('wf-monitor', () => {
     expect(b.misc.usage).toEqual({ byModel: { 'claude-haiku-4-5': { in: 7, out: 3, cr: 0, cw: 0, n: 1 } } })
   })
 
+  test('bağlam serisi: her istek bir nokta, aradaki araçlar noktaya yazılır', async ($, on) => {
+    const { clock, posts, ctl } = world(on, [], POST_ENV)
+    await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+    ctl.stepUsage = U(100, 50, 1000, 10)
+    await step($, {})
+    await $.tool.call({ tool: 'Read', file_path: '/w/big.js' })
+    await $.tool.call({ tool: 'Grep', pattern: 'x' })
+    ctl.stepUsage = U(30000, 20, 1110, 0)
+    await step($, {})
+    await clock.advance(2100)
+    const sr = lastPost(posts).body.main.series
+    expect(sr.map(p => p.c)).toEqual([1110, 31110])
+    expect(sr[0].x).toEqual([])
+    expect(sr[1].x).toEqual(['Read: /w/big.js', 'Grep: x'])
+    expect(sr[1]).toEqual(expect.objectContaining({ o: 20, r: 1110, w: 0 }))
+  })
+
   test('alt agent: doğum, adımlar, token, tur sonu sonucu; yeni tur yeniden çalıştırır', async ($, on) => {
     const { clock, posts, ctl } = world(on, [], POST_ENV)
     await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
