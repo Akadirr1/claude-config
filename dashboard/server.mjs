@@ -9,7 +9,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { createStore, validate, csv as csvOf } from './store.mjs'
+import { createStore, validate, csv as csvOf, runsOf } from './store.mjs'
 import { createAutomations, spend } from './automations.mjs'
 import { PRICES } from './public/pricing.js'
 
@@ -247,6 +247,7 @@ export function createServer({
       return v ? json(res, { serverNow: opts.now, view: v }) : res.writeHead(404).end()
     }
     if (path === '/api/stats') return json(res, store.stats(opts))
+    if (path === '/api/runs') return json(res, { runs: runsOf(store.rows(), (q.get('name') ?? '').slice(0, 120)) })
     if (path === '/api/automations') {
       const a = auto.get()
       return json(res, { ...a, spend: spend(store.rows(), opts.now, a.settings.tz), publicUrl: Boolean(publicUrl), writable: autoWritable })

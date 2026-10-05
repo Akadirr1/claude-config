@@ -435,7 +435,7 @@ test('analiz ve CSV: sınıf/model/gün kırılımı, graphify karşılaştırma
 
 test('/api/* oturum ister; bilinmeyen session 404', async t => {
   const s = await start(t)
-  for (const p of ['/api/sessions', '/api/sessions/s1', '/api/stats', '/api/export.csv']) assert.equal((await s.req(p)).status, 401, p)
+  for (const p of ['/api/sessions', '/api/sessions/s1', '/api/stats', '/api/export.csv', '/api/runs?name=feature', '/api/automations']) assert.equal((await s.req(p)).status, 401, p)
   const c = await s.cookie()
   assert.equal((await s.req('/api/sessions/yok', { headers: { Cookie: c } })).status, 404)
   assert.equal((await s.req('/api/sessions/%E0%A4%A', { headers: { Cookie: c } })).status, 400)

@@ -171,6 +171,24 @@ const running = v =>
   v.subs.some(s => s.status === 'running') ||
   v.runs.some(r => r.status === 'running')
 
+// Bağlam serisinden şişme: iki istek arasındaki bağlam artışı (önceki çıkış düşülür; o da bağlama girer)
+// aradaki araçlara yazılır. Dönüş: zirve bağlam, en büyük 3 sıçrama, araç adına göre toplam.
+export function bloatOf(series) {
+  const pts = (Array.isArray(series) ? series : []).filter(isObj).map(p => ({ c: num(p.c), o: num(p.o), x: Array.isArray(p.x) ? p.x.filter(x => typeof x === 'string').slice(0, 4).map(x => str(x, 80)) : [] }))
+  const out = { peak: 0, jumps: [], byTool: {} }
+  for (let i = 0; i < pts.length; i++) {
+    out.peak = Math.max(out.peak, pts[i].c)
+    if (!i) continue
+    const d = pts[i].c - pts[i - 1].c - pts[i - 1].o
+    if (d <= 0 || !pts[i].x.length) continue
+    out.jumps.push({ d, x: pts[i].x.join(' · ') })
+    const names = pts[i].x.map(x => (/^\+\d/.test(x) ? 'diğer' : x.split(':')[0].trim() || '?'))
+    for (const n of names) out.byTool[n] = (out.byTool[n] ?? 0) + d / names.length
+  }
+  out.jumps = out.jumps.sort((a, b) => b.d - a.d).slice(0, 3)
+  return out
+}
+
 // Defter satırları: analiz ve CSV dışa aktarımı bunlardan yapılır (her agent bir satır)
 export function rows(v) {
   const out = []
@@ -182,11 +200,12 @@ export function rows(v) {
       sid: v.id, repo: v.repo, kind, id: a.id ?? 'main', label: str(a.label, 120) || (kind === 'main' ? 'Şef' : '?'), cls: a.cls,
       agentType: str(a.agentType, 80), model: a.model ?? '', status: a.status ?? '', start: ts(a.startedAt), end: ts(a.endedAt),
       in: t.in, out: t.out, cr: t.cr, cw: t.cw, n: t.n, cost: t.cost, g: num(a.graph?.g), r: num(a.graph?.r), ...extra,
+      ...(({ peak, jumps, byTool }) => ({ peak, jumps, bt: byTool }))(bloatOf(a.series)),
     })
   }
   if (v.main) row('main', v.main, { start: ts(v.main.startedAt) || v.firstAt, end: v.receivedAt, status: v.main.status ?? '' })
   for (const s of v.subs) row('sub', s)
-  for (const r of v.runs) for (const a of r.agents) row('wf', a, { run: str(r.name, 120), runId: r.taskId })
+  for (const r of v.runs) for (const a of r.agents) row('wf', a, { run: str(r.name, 120), runId: r.taskId, phase: str(a.phase, 80), round: num(a.round) || 1 })
   return out
 }
 
@@ -231,16 +250,18 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
     for (const r of rs) {
       const k = f(r)
       if (k == null || k === '') continue
-      const g = m.get(k) ?? { key: k, cost: 0, tokens: 0, n: 0, durs: [], costs: [] }
+      const g = m.get(k) ?? { key: k, cost: 0, tokens: 0, in: 0, out: 0, cr: 0, cw: 0, n: 0, durs: [], costs: [], toks: [] }
       g.cost += r.cost
       g.tokens += r.in + r.out + r.cr + r.cw
+      for (const x of ['in', 'out', 'cr', 'cw']) g[x] += r[x]
+      g.toks.push(r.in + r.out + r.cr + r.cw)
       g.n++
       if (r.end > r.start && r.start) g.durs.push(r.end - r.start)
       g.costs.push(r.cost)
       m.set(k, g)
     }
     return [...m.values()]
-      .map(({ durs, costs, ...g }) => ({ ...g, medDur: median(durs), medCost: median(costs) }))
+      .map(({ durs, costs, toks, ...g }) => ({ ...g, medDur: median(durs), medCost: median(costs), medTok: median(toks), cacheHit: g.in + g.cr + g.cw ? g.cr / (g.in + g.cr + g.cw) : 0 }))
       .sort((a, b) => b.cost - a.cost)
   }
   const first = rs.reduce((m, r) => Math.min(m, r.start || now), now)
@@ -249,25 +270,30 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
   const dayCost = new Map()
   for (const r of rs) {
     const d = dayOf(r.start || r.end, tz)
-    const e = dayCost.get(d) ?? { cost: 0, byClass: {} }
+    const e = dayCost.get(d) ?? { cost: 0, tok: 0, byClass: {}, byClassTok: {} }
+    const tk = r.in + r.out + r.cr + r.cw
     e.cost += r.cost
+    e.tok += tk
     e.byClass[r.cls] = (e.byClass[r.cls] ?? 0) + r.cost
+    e.byClassTok[r.cls] = (e.byClassTok[r.cls] ?? 0) + tk
     dayCost.set(d, e)
   }
   for (let i = Math.min(span, 90) - 1; i >= 0; i--) {
     const d = dayOf(now - i * DAY, tz)
-    byDay.push({ day: d, ...(dayCost.get(d) ?? { cost: 0, byClass: {} }) })
+    byDay.push({ day: d, ...(dayCost.get(d) ?? { cost: 0, tok: 0, byClass: {}, byClassTok: {} }) })
   }
   const heat = []
   const allDay = new Map()
   for (const r of allRows) {
     if (repo && r.repo !== repo) continue
     const d = dayOf(r.start || r.end, tz)
-    allDay.set(d, (allDay.get(d) ?? 0) + r.cost)
+    const e = allDay.get(d) ?? allDay.set(d, { cost: 0, tok: 0 }).get(d)
+    e.cost += r.cost
+    e.tok += r.in + r.out + r.cr + r.cw
   }
   for (let i = 83; i >= 0; i--) {
     const d = dayOf(now - i * DAY, tz)
-    heat.push({ day: d, cost: allDay.get(d) ?? 0 })
+    heat.push({ day: d, ...(allDay.get(d) ?? { cost: 0, tok: 0 }) })
   }
   // Graphify etkisi: grafı kullanan agent'larla kullanmayanların ortalama giriş tokeni ve maliyeti
   const agents = rs.filter(r => r.kind !== 'main')
@@ -283,7 +309,29 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
     with: side(agents.filter(r => r.g > 0)),
     without: side(agents.filter(r => r.g === 0)),
   }
+  // sınıf bazında graf karnesi: aynı tür işte grafı kullanan ve kullanmayanların ortanca bağlam tokeni
+  const ctx = r => r.in + r.cr + r.cw
+  graphify.byClass = [...new Set(agents.map(r => r.cls))].map(cls => {
+    const xs = agents.filter(r => r.cls === cls)
+    const w = xs.filter(r => r.g > 0), wo = xs.filter(r => r.g === 0)
+    return { cls, with: { n: w.length, med: median(w.map(ctx)), peak: median(w.map(r => r.peak)) }, without: { n: wo.length, med: median(wo.map(ctx)), peak: median(wo.map(r => r.peak)) } }
+  }).filter(x => x.with.n + x.without.n > 0).sort((a, b) => b.with.n + b.without.n - (a.with.n + a.without.n))
   const top = [...agents].sort((a, b) => b.cost - a.cost).slice(0, 12)
+  const tok = r => r.in + r.out + r.cr + r.cw
+  const topTok = [...agents].sort((a, b) => tok(b) - tok(a)).slice(0, 12)
+  // cache verimliliği: yazıp geri okumayan (cache write pahalı, okunmazsa boşa) agent'lar
+  const cacheWaste = agents.filter(r => r.cw >= 20000 && r.cr < r.cw).sort((a, b) => b.cw - b.cr - (a.cw - a.cr)).slice(0, 10)
+  // bağlamı kim şişirdi: araç adına göre toplam ve en büyük tek sıçramalar
+  const bt = new Map()
+  for (const r of rs) for (const [k, d] of Object.entries(r.bt ?? {})) {
+    const e = bt.get(k) ?? bt.set(k, { tool: k, tok: 0, agents: 0 }).get(k)
+    e.tok += d
+    e.agents++
+  }
+  const bloat = {
+    byTool: [...bt.values()].sort((a, b) => b.tok - a.tok).slice(0, 12),
+    jumps: rs.flatMap(r => (r.jumps ?? []).map(j => ({ ...j, sid: r.sid, id: r.id, label: r.label, cls: r.cls, repo: r.repo }))).sort((a, b) => b.d - a.d).slice(0, 15),
+  }
   const workflows = group('run', r => (r.kind === 'wf' ? r.run : null)).map(g => ({
     ...g,
     runs: new Set(rs.filter(r => r.run === g.key).map(r => r.runId)).size,
@@ -293,13 +341,26 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
     totals: { ...t, cacheHit: t.in + t.cr + t.cw ? t.cr / (t.in + t.cr + t.cw) : 0 },
     byDay, heat,
     byClass: group('cls'), byModel: group('model'), byRepo: group('repo'), workflows,
-    top, graphify,
+    top, topTok, cacheWaste, bloat, graphify,
     repos: [...new Set(allRows.map(r => r.repo).filter(Boolean))].sort(),
     prices: PRICES,
   }
 }
 
-const CSV_COLS = ['sid', 'repo', 'kind', 'run', 'id', 'label', 'cls', 'agentType', 'model', 'status', 'start', 'end', 'in', 'out', 'cr', 'cw', 'n', 'cost', 'g', 'r']
+// Aynı adlı workflow'un run'ları (karşılaştırma için): en yeni 30, agent satırlarıyla
+export function runsOf(allRows, name) {
+  const m = new Map()
+  for (const r of allRows) {
+    if (r.kind !== 'wf' || r.run !== name) continue
+    const e = m.get(r.runId) ?? m.set(r.runId, { runId: r.runId, sid: r.sid, repo: r.repo, startedAt: Infinity, in: 0, out: 0, cr: 0, cw: 0, cost: 0, agents: [] }).get(r.runId)
+    e.startedAt = Math.min(e.startedAt, r.start || Infinity)
+    for (const k of ['in', 'out', 'cr', 'cw', 'cost']) e[k] += r[k]
+    e.agents.push({ id: r.id, label: r.label, phase: r.phase ?? '', round: r.round ?? 1, cls: r.cls, status: r.status, in: r.in, out: r.out, cr: r.cr, cw: r.cw, cost: r.cost, peak: r.peak ?? 0, g: r.g })
+  }
+  return [...m.values()].map(e => ({ ...e, startedAt: Number.isFinite(e.startedAt) ? e.startedAt : 0 })).sort((a, b) => b.startedAt - a.startedAt).slice(0, 30)
+}
+
+const CSV_COLS = ['sid', 'repo', 'kind', 'run', 'phase', 'id', 'label', 'cls', 'agentType', 'model', 'status', 'start', 'end', 'in', 'out', 'cr', 'cw', 'peak', 'n', 'cost', 'g', 'r']
 // Hücre başındaki = + - @ formül olarak çalışmasın (CSV enjeksiyonu)
 const cell = v => {
   let s = v == null ? '' : typeof v === 'number' ? String(Math.round(v * 1e6) / 1e6) : String(v)
