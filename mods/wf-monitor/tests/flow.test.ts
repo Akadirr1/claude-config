@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
-import { addUsage, artifactsOf, fit, graphHit, mask, tagOf, withGraphHint } from '../hooks/register.js'
+import { addUsage, artifactsOf, fit, graphHit, mask, noGraphTag, noMemoryTag, tagOf, withGraphHint } from '../hooks/register.js'
 
 const DIR = '/s/workflows/run1'
 const SCRIPT = `export const meta = {
@@ -829,5 +829,16 @@ describe('wf-monitor', () => {
     expect(b.session.tag).toBe('grafsiz')
     expect(b.main.graph).toEqual({ g: 0, r: 1 })
     expect(tagOf('[DENEY:Grafli] x')).toBe('grafli')
+  })
+  test('belleksiz deney: agentmemory araçları reddedilir; etiketler birleşebilir', async ($, on) => {
+    world(on, [], POST_ENV)
+    on('tool.call', { tool: 'mcp__plugin_agentmemory_agentmemory__memory_recall' }, () => ({ result: 'anı' }))
+    await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+    await $.turn.start({ text: '[deney:belleksiz] iş', turnId: 'T1' })
+    const r = await $.tool.call({ tool: 'mcp__plugin_agentmemory_agentmemory__memory_recall', query: 'x' })
+    expect(r.deny).toContain('agentmemory kapalı')
+    const g = await $.tool.call({ tool: 'Bash', command: 'graphify query "x"' })
+    expect(g.deny).toBeUndefined()
+    expect([noMemoryTag('belleksiz'), noMemoryTag('grafsiz-belleksiz'), noGraphTag('grafsiz-belleksiz'), noMemoryTag('bellekli'), noGraphTag('grafli')]).toEqual([true, true, true, false, false])
   })
 })

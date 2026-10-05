@@ -191,11 +191,15 @@ function bloatView(b) {
 function experiments(list) {
   const xs = arr(list)
   if (!xs.length) return null
-  const a = xs.find(x => x.tag === 'grafli'), b = xs.find(x => /^(grafs[iı]z|nograph|no-graph)$/.test(str(x.tag)))
-  const verdict = a && b && b.tok ? (() => {
+  // karşı kollar: grafli/grafsiz, bellekli/belleksiz
+  const pair = (on, off, name) => {
+    const a = xs.find(x => x.tag === on), b = xs.find(x => x.tag === off)
+    if (!a || !b || !b.tok) return null
     const d = 1 - a.tok / b.tok
-    return `Graflı session'lar ortancada grafsızlara göre %${Math.abs(Math.round(d * 100))} ${d >= 0 ? 'daha az' : 'daha fazla'} yeni token üretti (${fmtTok(a.tok)} / ${fmtTok(b.tok)}; ${a.sessions} + ${b.sessions} session).`
-  })() : null
+    return `${name}: ${on} session'lar ortancada ${off} olanlara göre %${Math.abs(Math.round(d * 100))} ${d >= 0 ? 'daha az' : 'daha fazla'} yeni token üretti (${fmtTok(a.tok)} / ${fmtTok(b.tok)}; ${a.sessions} + ${b.sessions} session).`
+  }
+  const verdicts = [pair('grafli', 'grafsiz', 'Graphify'), pair('bellekli', 'belleksiz', 'Ortak bellek')].filter(Boolean)
+  const verdict = verdicts.length ? verdicts.join(' ') : null
   const cols = [['tag', 'deney'], ['sessions', 'session'], ['tok', 'ortanca yeni token'], ['cw', 'cache yazma'], ['out', 'çıkış'], ['cr', 'tekrar okunan'], ['n', 'istek'], ['agents', 'agent'], ['peak', 'zirve bağlam'], ['mainShare', 'Şef payı'], ['graph', 'graf-önce']]
   const cell = (x, k) => (k === 'tag' ? h('td', {}, h('span', { class: 'tag-chip', text: str(x.tag) })) : h('td', { class: 'num', text: k === 'mainShare' || k === 'graph' ? fmtPct(x[k]) : k === 'sessions' || k === 'n' || k === 'agents' ? String(Math.round(num(x[k]) ?? 0)) : fmtTok(x[k]) }))
   return h('div', { class: 'gi' },
@@ -203,7 +207,7 @@ function experiments(list) {
     h('div', { class: 'tbl-w' }, h('table', { class: 'tbl' },
       h('thead', {}, h('tr', {}, cols.map(([, t]) => h('th', { scope: 'col', text: t })))),
       h('tbody', {}, xs.map(x => h('tr', {}, cols.map(([k]) => cell(x, k))))))),
-    h('p', { class: 'muted small', text: 'Session\'ın ilk mesajına [deney:ad] yazınca etiketlenir; [deney:grafsiz] o session\'da graphify\'ı kapatır.' }))
+    h('p', { class: 'muted small', text: 'Session\'ın ilk mesajına [deney:ad] yazınca etiketlenir; [deney:grafsiz] graphify\'ı, [deney:belleksiz] agentmemory\'yi o session\'da kapatır.' }))
 }
 
 // Cache israfı: cache'e yazıp geri okumayan agent'lar (yazma pahalı, okunmazsa boşa)
