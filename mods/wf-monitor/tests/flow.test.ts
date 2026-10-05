@@ -642,6 +642,42 @@ describe('wf-monitor', () => {
     expect(sr[1]).toEqual(expect.objectContaining({ o: 20, r: 1110, w: 0 }))
   })
 
+  test('bağlam: sır kırpılmadan önce maskelenir, araç sayacı doğru, 120 sonrası inceltme sahte sıçrama üretmez', async ($, on) => {
+    const { clock, posts, ctl } = world(on, [], POST_ENV)
+    await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+    ctl.stepUsage = U(10, 0)
+    await step($, {})
+    await $.tool.call({ tool: 'Bash', command: 'export DATABASE_PASSWORD="hunter2-this-is-a-long-secret-value-xxxxxxxxxxxxxxxxxxxxxxxx" && ls' })
+    for (let i = 0; i < 9; i++) await $.tool.call({ tool: 'Read', file_path: `/w/f${i}` })
+    ctl.stepUsage = U(5010, 0)
+    await step($, {})
+    for (let i = 0; i < 200; i++) {
+      await $.tool.call({ tool: 'Grep', pattern: `p${i}` })
+      ctl.stepUsage = U(5010 + (i + 1) * 1000, 0)
+      await step($, {})
+    }
+    await clock.advance(2100)
+    const m = lastPost(posts).body.main
+    expect(JSON.stringify(m)).not.toContain('hunter2')
+    expect(m.ctx.jumps[0]).toEqual({ d: 5000, x: expect.stringContaining('+7 araç daha') })
+    expect(m.ctx.peak).toBe(205010)
+    expect(m.ctx.byTool.Bash).toBe(500)
+    expect(m.ctx.byTool.Read).toBe(4500)
+    expect(m.series.length).toBe(120)
+    expect(m.series[0].i).toBe(1)
+    expect(m.series[1].i).toBeGreaterThan(2)
+    expect(m.series.at(-1).i).toBe(202)
+  })
+
+  test('fit: önce yalnız seriler kısalır, sonuçlar kalır', async () => {
+    const pt = { t: 1, i: 1, c: 1, o: 1, r: 0, w: 0, x: ['Read: ' + 'x'.repeat(60)] }
+    const agents = Array.from({ length: 30 }, (_, i) => ({ id: 'a' + i, status: 'done', steps: [], result: { kind: 'text', text: 'ok' }, series: Array.from({ length: 120 }, () => ({ ...pt })) }))
+    const body = { v: 3, session: { id: 's' }, main: null, subs: [], runs: [{ taskId: 't', status: 'done', agents, edges: [] }] }
+    JSON.parse(fit(body))
+    expect(body.runs[0].agents.every(a => a.result?.text === 'ok')).toBe(true)
+    expect(body.runs[0].agents[0].series.length).toBe(40)
+  })
+
   test('alt agent: doğum, adımlar, token, tur sonu sonucu; yeni tur yeniden çalıştırır', async ($, on) => {
     const { clock, posts, ctl } = world(on, [], POST_ENV)
     await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
