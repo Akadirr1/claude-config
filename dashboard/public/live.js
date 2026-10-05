@@ -270,15 +270,27 @@ function renderCompare(run) {
   if (!run || c?.tid !== run.taskId) return void ((box.hidden = true), box.replaceChildren())
   box.hidden = false
   if (c.busy) return box.replaceChildren(h('p', { class: 'muted pad', text: 'run\'lar yükleniyor…' }))
-  const A = c.runs.find(x => x.runId === run.taskId)
+  // A canlı run'dan kurulur (defterdeki görüntü fetch anında donmuş olabilir)
+  const A = { runId: run.taskId, agents: run.agents.map(a => ({ label: a.label, phase: a.phase ?? '', cls: a.cls, ...a.tokens })) }
+  for (const k of ['in', 'out', 'cr', 'cw', 'cost']) A[k] = A.agents.reduce((n, a) => n + (a[k] ?? 0), 0)
   const others = c.runs.filter(x => x.runId !== run.taskId)
-  if (!A || !others.length) return box.replaceChildren(h('p', { class: 'muted pad', text: `Defterde karşılaştırılacak başka ${run.name} run'ı yok.` }))
+  if (!others.length) return box.replaceChildren(h('p', { class: 'muted pad', text: `Defterde karşılaştırılacak başka ${run.name} run'ı yok.` }))
   const B = others.find(x => x.runId === c.b) ?? others[0]
   const key = a => `${str(a.phase)}|${str(a.label)}`
   const keys = [...new Set([...arr(A.agents), ...arr(B.agents)].map(key))]
-  const am = new Map(arr(A.agents).map(a => [key(a), a])), bm = new Map(arr(B.agents).map(a => [key(a), a]))
+  // aynı phase'te aynı label'lı birden çok agent varsa toplanır
+  const sum = list => {
+    const m = new Map()
+    for (const a of arr(list)) {
+      const e = m.get(key(a)) ?? m.set(key(a), { label: str(a.label), phase: str(a.phase), cls: a.cls, in: 0, out: 0, cr: 0, cw: 0, cost: 0, n: 0 }).get(key(a))
+      for (const k of ['in', 'out', 'cr', 'cw', 'cost']) e[k] += num(a[k]) ?? 0
+      e.n++
+    }
+    return m
+  }
+  const am = sum(A.agents), bm = sum(B.agents)
   const max = Math.max(1, ...keys.flatMap(k => [tk(am.get(k)), tk(bm.get(k))]))
-  const delta = (a, b) => (!a || !b ? null : b ? a / b - 1 : null)
+  const delta = (a, b) => (a == null || b == null || !b ? null : a / b - 1)
   const dCell = d => h('td', { class: `num strong ${d == null ? '' : d > 0.1 ? 'bad-t' : d < -0.1 ? 'ok-t' : ''}`, text: d == null ? '—' : `${d > 0 ? '+' : '−'}${Math.abs(Math.round(d * 100))}%` })
   const bar = (x, cls) => h('span', { class: `cmp-bar ${cls}` }, h('i', { style: `width:${(tk(x) / max) * 100}%` }))
   const pick = h('select', { 'aria-label': 'Karşılaştırılacak run', onchange: e => { c.b = e.target.value; api.render() } },
@@ -293,13 +305,19 @@ function renderCompare(run) {
           const x = a ?? b
           const hit = y => (y && y.in + y.cr + y.cw ? fmtPct(y.cr / (y.in + y.cr + y.cw)) : '—')
           return h('tr', {},
-            h('td', {}, h('span', { class: 'cell-a' }, glyph(x.cls, 14), h('span', { text: x.label })), h('span', { class: 'muted small', text: ` ${x.phase}` })),
+            h('td', {}, h('span', { class: 'cell-a' }, glyph(x.cls, 14), h('span', { text: x.n > 1 ? `${x.label} ×${x.n}` : x.label })), h('span', { class: 'muted small', text: ` ${x.phase}` })),
             h('td', { class: 'num', tip: a ? tokTip(a) : '' }, a ? fmtTok(tk(a)) : '—', bar(a, 'a')),
             h('td', { class: 'num', tip: b ? tokTip(b) : '' }, b ? fmtTok(tk(b)) : '—', bar(b, 'b')),
-            dCell(delta(tk(a), tk(b))),
+            dCell(delta(a ? tk(a) : null, b ? tk(b) : null)),
             h('td', { class: 'num muted', text: `${hit(a)} / ${hit(b)}` }))
         }),
-        h('tr', { class: 'cmp-total' }, h('td', { text: 'toplam' }), h('td', { class: 'num strong', tip: tokTip(A), text: fmtTok(tk(A)) }), h('td', { class: 'num strong', tip: tokTip(B), text: fmtTok(tk(B)) }), dCell(delta(tk(A), tk(B))), h('td', {}))))))
+        (() => {
+          // ortak agent'lar: iki run'da da olanlar (biri daha çok tur döndüyse toplam yanıltmasın)
+          const both = keys.filter(k => am.has(k) && bm.has(k))
+          const sa = both.reduce((n, k) => n + tk(am.get(k)), 0), sb = both.reduce((n, k) => n + tk(bm.get(k)), 0)
+          return h('tr', { class: 'cmp-total' }, h('td', { text: `ortak agent'lar (${both.length})` }), h('td', { class: 'num strong', text: fmtTok(sa) }), h('td', { class: 'num strong', text: fmtTok(sb) }), dCell(delta(sa, sb)), h('td', {}))
+        })(),
+        h('tr', { class: 'cmp-total' }, h('td', { text: 'toplam (hepsi)' }), h('td', { class: 'num strong', tip: tokTip(A), text: fmtTok(tk(A)) }), h('td', { class: 'num strong', tip: tokTip(B), text: fmtTok(tk(B)) }), dCell(delta(tk(A), tk(B))), h('td', {}))))))
 }
 
 function renderRunPanel(v, realRun) {
@@ -666,6 +684,7 @@ function tokenView(a) {
 export function jumpsOf(series) {
   const out = []
   for (let i = 1; i < series.length; i++) {
+    if (series[i].i && series[i - 1].i && series[i].i - series[i - 1].i !== 1) continue // inceltilmiş boşluk
     const d = series[i].c - series[i - 1].c - series[i - 1].o
     if (d > 0 && series[i].x.length) out.push({ i, d, x: series[i].x.join(' · ') })
   }
@@ -690,9 +709,9 @@ function contextCurve(a) {
   const step = (W - L - R) / Math.max(1, xs.length - 1)
   xs.forEach((p, i) => svg.append(s('rect', {
     x: x(i) - step / 2, y: T, width: Math.max(step, 2), height: H - T - B, class: 'hit',
-    tip: `istek ${i + 1}${p.t ? ' · ' + fmtClock(p.t) : ''}\nbağlam ${fmtTok(p.c)} (cache okuma ${fmtTok(p.r)}, yazma ${fmtTok(p.w)}) · çıkış ${fmtTok(p.o)}${p.x.length ? '\nöncesinde: ' + p.x.join(' · ') : ''}`,
+    tip: `istek ${p.i || i + 1}${p.t ? ' · ' + fmtClock(p.t) : ''}\nbağlam ${fmtTok(p.c)} (cache okuma ${fmtTok(p.r)}, yazma ${fmtTok(p.w)}) · çıkış ${fmtTok(p.o)}${p.x.length ? '\nöncesinde: ' + p.x.join(' · ') : ''}`,
   })))
-  svg.append(s('text', { x: L, y: H - 6, class: 'ax', text: 'istek 1' }), s('text', { x: W - R, y: H - 6, 'text-anchor': 'end', class: 'ax', text: `istek ${xs.length}` }))
+  svg.append(s('text', { x: L, y: H - 6, class: 'ax', text: `istek ${xs[0].i || 1}` }), s('text', { x: W - R, y: H - 6, 'text-anchor': 'end', class: 'ax', text: `istek ${xs.at(-1).i || xs.length}` }))
   return h('div', { class: 'ctx-w' },
     h('div', { class: 'tk-legend' }, h('span', { class: 'lg' }, h('i', { class: 'ctx-k-line', 'aria-hidden': 'true' }), 'bağlam (giriş + cache)'), h('span', { class: 'lg' }, h('i', { class: 'tk-sw tk-cr', 'aria-hidden': 'true' }), 'cache okuma'), h('span', { class: 'lg' }, h('i', { class: 'ctx-k-jump', 'aria-hidden': 'true' }), 'en büyük sıçramalar')),
     svg,

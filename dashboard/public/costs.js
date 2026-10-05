@@ -124,7 +124,7 @@ function graphImpact(g) {
   const side = (title, x, cls) => h('div', { class: `gi-side ${cls}` },
     h('span', { class: 'k', text: title }),
     h('b', { class: 'num', text: `${x.n ?? 0} agent` }),
-    h('span', { class: 'muted small', text: `ort. giriş ${fmtTok(x.avgIn)} · ort. ${fmtCost(x.avgCost)}` }))
+    h('span', { class: 'muted small', text: `ort. bağlam ${fmtTok(x.avgIn)} · ort. ${fmtCost(x.avgCost)}` }))
   const rel = d => (Math.round(d * 100) >= 0 ? `%${Math.round(d * 100)} daha az` : `%${Math.round(-d * 100)} daha fazla`)
   const verdict = !w.n || !wo.n ? 'Karşılaştırma için iki tarafta da agent gerekli.'
     : `Grafı kullanan agent ortalamada ${rel(dIn)} giriş tokeni ve ${rel(dCost)} maliyetle çalışmış${dIn <= 0 ? ' — bu aralıkta tasarruf görünmüyor, görev karışımına bak' : ''}.`

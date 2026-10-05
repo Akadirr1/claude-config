@@ -533,6 +533,7 @@ button.ev-b:hover { background: var(--surface2); }
 .cmp-bar i { display: block; height: 100%; border-radius: 2px; }
 .cmp-bar.a i { background: var(--ink); }
 .cmp-bar.b i { background: var(--tk-cw); }
+.cmp-t td.num { white-space: nowrap; }
 .cmp-total td { border-top: 1px solid var(--line2); font-weight: 700; }
 .tok-mix { display: flex; flex-direction: column; gap: 6px; }
 .tok-mix .tokbar { max-width: none; }
