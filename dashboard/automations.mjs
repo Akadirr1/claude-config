@@ -8,7 +8,7 @@ import { isIP } from 'node:net'
 
 const MAX_RULES = 50
 const LOG_MAX = 100
-const MIN_GAP_MS = 10_000 // aynı kural en sık 10 sn'de bir
+const MIN_GAP_MS = 10_000 // aynı kural en sık 10 sn'de bir mesaj; arada gelen olaylar bekler, tek mesajda birleşir
 const DAY = 86400e3
 
 export const TRIGGERS = {
@@ -55,7 +55,6 @@ function cleanTrigger(t) {
     out.pct = [50, 80, 100].includes(t.pct) ? t.pct : 80
   }
   if (t.type === 'quiet_agent' || t.type === 'long_run') out.min = Math.max(1, Math.min(1440, Math.round(num(t.min, 10))))
-  if (isObj(t) && typeof t.repo === 'string') out.repo = str(t.repo, 200)
   return out
 }
 export function cleanSettings(raw) {
@@ -135,6 +134,8 @@ const monthKey = (t, tz) => dayKey(t, tz).slice(0, 7)
 const fmt = v => (v < 10 ? '$' + v.toFixed(2) : '$' + v.toFixed(1))
 
 // Dönemin harcaması: bugünün ve bu ayın toplamı (agent başlangıç zamanına göre)
+// ponytail: maliyet satırın başladığı güne yazılır; günlerce süren bir session'ın Şef maliyeti ilk günde kalır.
+// Gerekirse push farklarından günlük artış tutulur.
 export function spend(rows, now, tz) {
   const d = dayKey(now, tz), m = monthKey(now, tz)
   let today = 0, month = 0
@@ -185,9 +186,17 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
       if (!(await safeTarget(action.url, resolve))) throw new Error('hedef iç ağda ya da çözülemedi')
       const { body, headers } = payload(action.format, msg)
       const headersOut = action.format === 'ntfy' ? { ...headers, Title: asciiTitle(msg.title) } : headers
-      const res = await send(action.url, { method: 'POST', headers: headersOut, body, redirect: 'error', signal: AbortSignal.timeout(8000) })
-      entry.status = res.status
-      entry.ok = res.ok
+      // geçici hata (ağ, 429, 5xx) bir kez daha denenir
+      for (let i = 0; i < 2; i++) {
+        try {
+          const res = await send(action.url, { method: 'POST', headers: headersOut, body, redirect: 'error', signal: AbortSignal.timeout(8000) })
+          Object.assign(entry, { status: res.status, ok: res.ok, error: '' })
+          if (res.ok || (res.status < 500 && res.status !== 429)) break
+        } catch (e) {
+          entry.error = str(e.message, 160)
+        }
+        if (i === 0) await new Promise(r => setTimeout(r, RETRY_MS))
+      }
     } catch (e) {
       entry.error = str(e.message, 160)
     }
@@ -197,15 +206,35 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
     return entry
   }
 
+  // Olay kural kuyruğuna girer (anahtar bir kez); flush kural başına en sık MIN_GAP'te bir mesaj yollar,
+  // kuyrukta birden çok olay varsa tek mesajda birleştirir. Böylece aynı anda gelen olaylar kaybolmaz.
+  const pending = new Map() // rule.id -> msg[]
   function fire(rule, key, msg) {
     if (!rule.enabled || fired[key]) return
+    fired[key] = now()
+    const q = pending.get(rule.id) ?? pending.set(rule.id, []).get(rule.id)
+    if (q.length < 50) q.push(msg)
+  }
+  function flush() {
     const t = now()
-    if (t - (lastSent.get(rule.id) ?? 0) < MIN_GAP_MS) return
-    lastSent.set(rule.id, t)
-    fired[key] = t
-    msg.at = t
-    onFire({ rule: rule.name, ...msg })
-    return deliver(rule.action, msg, rule.id)
+    const jobs = []
+    for (const [id, msgs] of pending) {
+      const rule = settings.rules.find(r => r.id === id)
+      if (!rule?.enabled) {
+        pending.delete(id)
+        continue
+      }
+      if (t - (lastSent.get(id) ?? 0) < MIN_GAP_MS) continue
+      pending.delete(id)
+      lastSent.set(id, t)
+      const msg = msgs.length === 1 ? msgs[0] : { ...msgs[0], title: `${msgs.length} olay · ${rule.name}`, body: msgs.map(m => m.title).join(' · ').slice(0, 900) }
+      msg.at = t
+      onFire({ rule: rule.name, ...msg })
+      jobs.push(deliver(rule.action, msg, rule.id))
+    }
+    if (jobs.length === 0 && pending.size === 0) return Promise.resolve([])
+    save()
+    return Promise.all(jobs)
   }
 
   let testBusy = false, lastTest = 0
@@ -216,7 +245,6 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
     const fix = a => (isObj(a) ? { ...a, url: unmask(a.url) } : a)
     return { ...raw, rules: Array.isArray(raw.rules) ? raw.rules.map(r => (isObj(r) ? { ...r, action: fix(r.action) } : r)) : raw.rules, digest: isObj(raw.digest) ? { ...raw.digest, action: fix(raw.digest.action) } : raw.digest }
   }
-  const repoOk = (rule, repo) => !rule.trigger.repo || rule.trigger.repo === repo
 
   return {
     // webhook adresleri sırdır: panele maskeli gider, geri gelen maske kayıtlı adrese çevrilir
@@ -237,11 +265,9 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
 
     // push sonrası: önceki ve yeni görünümün farkı
     async onIngest(prev, v, allRows) {
-      const jobs = []
       const was = new Map((prev?.runs ?? []).map(r => [r.taskId, r]))
       const wasAgents = new Map([...(prev?.subs ?? []), ...(prev?.runs ?? []).flatMap(r => r.agents)].map(a => [a.id, a.status]))
       for (const rule of settings.rules) {
-        if (!repoOk(rule, v.repo)) continue
         const tr = rule.trigger
         if (tr.type === 'run_end')
           for (const r of v.runs) {
@@ -250,23 +276,22 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
             if (tr.workflow && tr.workflow !== r.name) continue
             const cost = r.agents.reduce((n, a) => n + a.tokens.cost, 0)
             const icon = { done: '✓', failed: '✕', stopped: '■' }[r.status]
-            jobs.push(fire(rule, `${rule.id}:run:${r.taskId}:${r.status}`, { event: 'run_end', title: `${icon} ${r.name} ${({ done: 'tamamlandı', failed: 'başarısız', stopped: 'durduruldu' })[r.status]}`, body: `${v.repo} · ${r.agents.length} agent · ${fmt(cost)}`, link: link(v.id), session: v.id, tag: r.status === 'done' ? 'white_check_mark' : 'x' }))
+            fire(rule, `${rule.id}:run:${r.taskId}:${r.status}`, { event: 'run_end', title: `${icon} ${r.name} ${({ done: 'tamamlandı', failed: 'başarısız', stopped: 'durduruldu' })[r.status]}`, body: `${v.repo} · ${r.agents.length} agent · ${fmt(cost)}`, link: link(v.id), session: v.id, tag: r.status === 'done' ? 'white_check_mark' : 'x' })
           }
         if (tr.type === 'agent_failed')
           for (const a of [...v.subs, ...v.runs.flatMap(r => r.agents)])
             if (a.status === 'failed' && wasAgents.get(a.id) !== 'failed')
-              jobs.push(fire(rule, `${rule.id}:fail:${a.id}`, { event: 'agent_failed', title: `✕ ${a.label} hata verdi`, body: `${v.repo} · ${a.cls}`, link: link(v.id), session: v.id, tag: 'x' }))
+              fire(rule, `${rule.id}:fail:${a.id}`, { event: 'agent_failed', title: `✕ ${a.label} hata verdi`, body: `${v.repo} · ${a.cls}`, link: link(v.id), session: v.id, tag: 'x' })
         if (tr.type === 'pr_opened') {
           const had = new Set((prev?.art?.prs ?? []).map(x => x.url))
           for (const x of v.art?.prs ?? [])
             if (!had.has(x.url))
-              jobs.push(fire(rule, `${rule.id}:pr:${x.url}`, { event: 'pr_opened', title: `⇡ PR açıldı: ${x.url.replace('https://github.com/', '')}`, body: `${v.repo} · ${fmt(v.totals.cost)} harcandı`, link: x.url, session: v.id, tag: 'rocket' }))
+              fire(rule, `${rule.id}:pr:${x.url}`, { event: 'pr_opened', title: `⇡ PR açıldı: ${x.url.replace('https://github.com/', '')}`, body: `${v.repo} · ${fmt(v.totals.cost)} harcandı`, link: x.url, session: v.id, tag: 'rocket' })
         }
         if (tr.type === 'session_cost' && v.totals.cost >= tr.usd && (prev?.totals.cost ?? 0) < tr.usd)
-          jobs.push(fire(rule, `${rule.id}:scost:${v.id}`, { event: 'session_cost', title: `$ session ${fmt(tr.usd)} eşiğini geçti`, body: `${v.repo} · şu an ${fmt(v.totals.cost)}`, link: link(v.id), session: v.id, tag: 'money_with_wings' }))
+          fire(rule, `${rule.id}:scost:${v.id}`, { event: 'session_cost', title: `$ session ${fmt(tr.usd)} eşiğini geçti`, body: `${v.repo} · şu an ${fmt(v.totals.cost)}`, link: link(v.id), session: v.id, tag: 'money_with_wings' })
       }
-      jobs.push(this.checkSpend(allRows))
-      return Promise.all(jobs)
+      return this.checkSpend(allRows) // kuyruğu da boşaltır
     },
 
     // günlük maliyet ve bütçe eşikleri: push'ta ve dakikalık saatte
@@ -274,19 +299,18 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
       const t = now()
       const sp = spend(allRows, t, settings.tz)
       const d = dayKey(t, settings.tz), m = monthKey(t, settings.tz)
-      const jobs = []
       for (const rule of settings.rules) {
         const tr = rule.trigger
         if (tr.type === 'daily_cost' && sp.today >= tr.usd)
-          jobs.push(fire(rule, `${rule.id}:daily:${d}`, { event: 'daily_cost', title: `$ bugün ${fmt(tr.usd)} eşiği geçildi`, body: `bugün ${fmt(sp.today)}`, link: publicUrl ? `${publicUrl.replace(/\/+$/, '')}/#maliyet` : null, tag: 'money_with_wings' }))
+          fire(rule, `${rule.id}:daily:${d}`, { event: 'daily_cost', title: `$ bugün ${fmt(tr.usd)} eşiği geçildi`, body: `bugün ${fmt(sp.today)}`, link: publicUrl ? `${publicUrl.replace(/\/+$/, '')}/#maliyet` : null, tag: 'money_with_wings' })
         if (tr.type === 'budget') {
           const limit = settings.budget[tr.period]
           const used = tr.period === 'monthly' ? sp.month : sp.today
           if (limit && used >= (limit * tr.pct) / 100)
-            jobs.push(fire(rule, `${rule.id}:budget:${tr.period === 'monthly' ? m : d}:${tr.pct}`, { event: 'budget', title: `⚠ ${tr.period === 'monthly' ? 'aylık' : 'günlük'} bütçenin %${tr.pct}'i aşıldı`, body: `${fmt(used)} / ${fmt(limit)}${tr.period === 'monthly' ? ` · ay sonu tahmini ${fmt(sp.projection)}` : ''}`, link: publicUrl ? `${publicUrl.replace(/\/+$/, '')}/#maliyet` : null, tag: 'warning' }))
+            fire(rule, `${rule.id}:budget:${tr.period === 'monthly' ? m : d}:${tr.pct}`, { event: 'budget', title: `⚠ ${tr.period === 'monthly' ? 'aylık' : 'günlük'} bütçenin %${tr.pct}'i aşıldı`, body: `${fmt(used)} / ${fmt(limit)}${tr.period === 'monthly' ? ` · ay sonu tahmini ${fmt(sp.projection)}` : ''}`, link: publicUrl ? `${publicUrl.replace(/\/+$/, '')}/#maliyet` : null, tag: 'warning' })
         }
       }
-      return Promise.all(jobs)
+      return flush()
     },
 
     // dakikalık saat: sessiz agent, uzun run, günlük özet
@@ -296,19 +320,18 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
       for (const rule of settings.rules) {
         const tr = rule.trigger
         for (const v of views) {
-          if (!repoOk(rule, v.repo)) continue
           const at = v.sentAt + (t - v.receivedAt) // mod saatine göre şimdi
           if (tr.type === 'quiet_agent')
             for (const a of [...v.subs, ...v.runs.flatMap(r => r.agents)]) {
               if (a.status !== 'running') continue
               const last = Math.max(num(a.startedAt, 0), ...(Array.isArray(a.steps) ? a.steps : []).map(x => num(x?.t, 0)))
               if (at - last >= tr.min * 60e3)
-                jobs.push(fire(rule, `${rule.id}:quiet:${a.id}:${last}`, { event: 'quiet_agent', title: `⏸ ${a.label} ${tr.min} dk'dır sessiz`, body: v.repo, link: link(v.id), session: v.id, tag: 'hourglass' }))
+                fire(rule, `${rule.id}:quiet:${a.id}:${last}`, { event: 'quiet_agent', title: `⏸ ${a.label} ${tr.min} dk'dır sessiz`, body: v.repo, link: link(v.id), session: v.id, tag: 'hourglass' })
             }
           if (tr.type === 'long_run')
             for (const r of v.runs)
               if (r.status === 'running' && at - r.startedAt >= tr.min * 60e3)
-                jobs.push(fire(rule, `${rule.id}:long:${r.taskId}`, { event: 'long_run', title: `⏱ ${r.name} ${tr.min} dk'yı geçti`, body: v.repo, link: link(v.id), session: v.id, tag: 'hourglass' }))
+                fire(rule, `${rule.id}:long:${r.taskId}`, { event: 'long_run', title: `⏱ ${r.name} ${tr.min} dk'yı geçti`, body: v.repo, link: link(v.id), session: v.id, tag: 'hourglass' })
         }
       }
       const dg = settings.digest
@@ -320,12 +343,13 @@ export function createAutomations({ dataDir, now = Date.now, send = globalThis.f
           jobs.push(deliver(dg.action, digest(allRows, t, settings), 'digest'))
         }
       }
-      return Promise.all(jobs)
+      return Promise.all([...jobs, flush()])
     },
   }
 }
 
 const TEST_GAP_MS = 3000
+const RETRY_MS = 2000
 export function maskUrl(url) {
   try {
     const u = new URL(url)

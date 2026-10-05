@@ -9,6 +9,19 @@ let on = pref.get('sound', '0') === '1'
 let recent = []
 
 export const soundOn = () => on
+// tercih kayıtlıysa: tarayıcı sesi ancak bir dokunuştan sonra açar, ilk dokunuşta bağlam kurulur
+if (on) {
+  const wake = () => {
+    try {
+      ctx ??= new AudioContext()
+      ctx.resume?.()
+    } catch {}
+    removeEventListener('pointerdown', wake)
+    removeEventListener('keydown', wake)
+  }
+  addEventListener('pointerdown', wake)
+  addEventListener('keydown', wake)
+}
 export function setSound(v) {
   on = v
   pref.set('sound', v ? '1' : '0')

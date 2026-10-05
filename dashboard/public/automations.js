@@ -3,7 +3,7 @@
 import { $, h, put, fmtCost, fmtDateTime, arr, num, str, obj } from './util.js'
 import { S } from './state.js'
 
-const st = { data: null, draft: null, dirty: false, busy: false, msg: '', err: '' }
+const st = { data: null, draft: null, dirty: false, busy: false, msg: '', err: '', tests: {} }
 const FORMAT_NAMES = { json: 'JSON webhook', slack: 'Slack', discord: 'Discord', ntfy: 'ntfy (telefon)' }
 const PRESETS = [
   ['Workflow bitince telefona', { type: 'run_end', status: 'any' }, 'ntfy'],
@@ -38,14 +38,18 @@ async function post(path, body) {
   if (!r.ok) throw new Error(str(d.error) || `HTTP ${r.status}`)
   return d
 }
+// tz kayıt anında alınır (yaz saati değişince bir kez yeniden kaydetmek yeter)
 async function save() {
   st.msg = 'kaydediliyor…'
   renderAutomations()
+  const sentDraft = JSON.stringify(st.draft)
   try {
     const d = await post('/api/automations', { ...st.draft, tz: -new Date().getTimezoneOffset() })
-    st.draft = structuredClone(d.settings)
-    st.dirty = false
-    st.msg = '✓ kaydedildi'
+    // kayıt sürerken yapılan düzenleme kaybolmasın: taslak değiştiyse kirli kalır
+    const editedMeanwhile = JSON.stringify(st.draft) !== sentDraft
+    if (!editedMeanwhile) st.draft = structuredClone(d.settings)
+    st.dirty = editedMeanwhile
+    st.msg = editedMeanwhile ? 'kaydedildi; sonraki değişiklikler kaydedilmedi' : '✓ kaydedildi'
     st.err = ''
     await load()
   } catch (e) {
@@ -54,15 +58,18 @@ async function save() {
     renderAutomations()
   }
 }
-async function test(action, out) {
-  out.textContent = 'gönderiliyor…'
+// sonuç st.tests'te tutulur: load() formu yeniden kursa da görünür kalır
+async function test(action, key) {
+  st.tests[key] = 'gönderiliyor…'
+  renderAutomations()
   try {
     const r = await post('/api/automations/test', action)
-    out.textContent = r.ok ? `✓ ulaştı (${r.status})` : `✕ ${r.error || 'HTTP ' + r.status}`
+    st.tests[key] = r.ok ? `✓ ulaştı (${r.status})` : `✕ ${r.error || 'HTTP ' + r.status}`
   } catch (e) {
-    out.textContent = `✕ ${e.message}`
+    st.tests[key] = `✕ ${e.message}`
   }
-  load()
+  if (st.dirty) renderAutomations()
+  else load()
 }
 
 const touch = (rerender = false) => {
@@ -120,7 +127,7 @@ function params(r) {
 
 function ruleCard(r, i) {
   const triggers = Object.entries(obj(st.data?.triggers))
-  const out = h('span', { class: 'muted small test-out', 'aria-live': 'polite' })
+  const out = h('span', { class: 'muted small test-out', 'aria-live': 'polite', text: st.tests[r.id] ?? '' })
   const last = arr(st.data?.deliveries).find(d => d.rule === r.id)
   return h('li', { class: `rule${r.enabled ? '' : ' off'}` },
     h('div', { class: 'rule-h' },
@@ -134,7 +141,7 @@ function ruleCard(r, i) {
         field('Kanal', select(r.action.format, Object.entries(FORMAT_NAMES), v => (r.action.format = v))),
         field('Adres (https)', h('input', { type: 'url', inputmode: 'url', value: r.action.url, placeholder: r.action.format === 'ntfy' ? 'https://ntfy.sh/gizli-konu-adi' : 'https://…', autocomplete: 'off', spellcheck: 'false', oninput: e => { r.action.url = e.target.value.trim(); touch() } })))),
     h('div', { class: 'rule-f' },
-      h('button', { type: 'button', class: 'ghost', onclick: () => test(r.action, out) }, 'Test gönder'),
+      h('button', { type: 'button', class: 'ghost', onclick: () => test(r.action, r.id) }, 'Test gönder'),
       h('button', { type: 'button', class: 'ghost danger', onclick: () => { st.draft.rules.splice(i, 1); touch(true) } }, 'Sil'),
       out))
 }
@@ -150,14 +157,14 @@ function rulesPanel() {
 function digestPanel() {
   const d = st.draft.digest
   d.action ??= { url: '', format: 'ntfy' }
-  const out = h('span', { class: 'muted small test-out', 'aria-live': 'polite' })
+  const out = h('span', { class: 'muted small test-out', 'aria-live': 'polite', text: st.tests.digest ?? '' })
   return h('div', { class: 'digest' },
     h('label', { class: 'sw-t' }, h('input', { type: 'checkbox', checked: d.enabled ? true : null, onchange: e => { d.enabled = e.target.checked; touch(true) } }), h('span', { text: 'Her sabah dünün özetini gönder' })),
     h('div', { class: 'fld-row' },
       field('Saat', select(d.hour, Array.from({ length: 24 }, (_, i) => [i, `${String(i).padStart(2, '0')}:00`]), v => (d.hour = Number(v)))),
       field('Kanal', select(d.action.format, Object.entries(FORMAT_NAMES), v => (d.action.format = v))),
       field('Adres (https)', h('input', { type: 'url', inputmode: 'url', value: d.action.url, placeholder: 'https://…', autocomplete: 'off', spellcheck: 'false', oninput: e => { d.action.url = e.target.value.trim(); touch() } }))),
-    h('div', { class: 'rule-f' }, h('button', { type: 'button', class: 'ghost', onclick: () => test(d.action, out) }, 'Test gönder'), out),
+    h('div', { class: 'rule-f' }, h('button', { type: 'button', class: 'ghost', onclick: () => test(d.action, 'digest') }, 'Test gönder'), out),
     h('p', { class: 'muted small', text: 'Özet: dünkü maliyet, session ve agent sayısı, hatalar, graf-önce oranı, en pahalı üç agent ve ay durumu.' }))
 }
 

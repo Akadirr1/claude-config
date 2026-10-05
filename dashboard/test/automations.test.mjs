@@ -201,3 +201,28 @@ test('bozuk zaman damgası sayımı ve saati düşürmez', async () => {
   await a.tick([v], [{ start: 1e300, cost: 5 }, { start: NaN, cost: 1 }])
   assert.ok(spend([{ start: 1e300, cost: 5 }], Date.now(), 0).today === 0)
 })
+
+test('aynı anda gelen olaylar kaybolmaz: tek mesajda birleşir, aralıkta gelen sonra gider', async () => {
+  const { a, sent, clock } = harness({ rules: [hook({ type: 'agent_failed' })] })
+  const two = view([wf('running', [agent('x', { status: 'failed' }), agent('y', { status: 'failed' })])])
+  await a.onIngest(view([wf('running', [agent('x'), agent('y')])]), two, [])
+  assert.equal(sent.length, 1)
+  const m = JSON.parse(sent[0].body)
+  assert.match(m.title, /2 olay/)
+  assert.match(m.body, /x hata verdi · ✕ y hata verdi/)
+  clock.t += 2000 // aralık dolmadan üçüncü hata
+  await a.onIngest(two, view([wf('running', [agent('x', { status: 'failed' }), agent('y', { status: 'failed' }), agent('z', { status: 'failed' })])]), [])
+  assert.equal(sent.length, 1, 'aralıkta bekler')
+  clock.t += 10_000
+  await a.tick([], [])
+  assert.equal(sent.length, 2)
+  assert.match(JSON.parse(sent[1].body).title, /z hata verdi/)
+})
+
+test('geçici teslim hatası bir kez yeniden denenir', async () => {
+  let n = 0
+  const a = createAutomations({ resolve: pub, send: async () => (++n === 1 ? { ok: false, status: 503 } : { ok: true, status: 200 }) })
+  const r = await a.test({ url: 'https://ok.example/x', format: 'json' })
+  assert.equal(n, 2)
+  assert.equal(r.ok, true)
+})
