@@ -1,17 +1,17 @@
 # Graph Report - claude-config  (2026-10-05)
 
 ## Corpus Check
-- 33 files · ~52,984 words
+- 33 files · ~53,134 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 4 file(s) not represented in the graph (top: (none) 2, .webmanifest 1, .css 1)
 
 ## Summary
-- 565 nodes · 1804 edges · 24 communities (18 shown, 6 thin omitted)
+- 565 nodes · 1805 edges · 24 communities (18 shown, 6 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 23 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `67fe6814`
+- Built from commit: `ec8e2dad`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

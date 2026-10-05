@@ -125,12 +125,13 @@ test('deneyler: etiketli session\'lar etiket başına ortancalanır; taban ve et
   const r = (sid, tag, kind, extra) => ({ sid, repo: 'o/r', tag, kind, id: kind === 'main' ? 'main' : sid + 'x', label: 'a', cls: 'dev', status: 'done', start: now - 60e3, end: now, in: 0, out: 100, cr: 1000, cw: 100, n: 2, cost: 0, g: 0, r: 0, peak: 1000, base: 500, jumps: [], bt: {}, ...extra })
   const rs = [
     r('a', 'grafli', 'main', { cr: 5000, g: 2 }), r('a', 'grafli', 'sub', { g: 1 }),
-    r('b', 'grafsiz', 'main', { cr: 9000, r: 3 }), r('b', 'grafsiz', 'sub', { r: 2 }),
+    r('b', 'grafsiz', 'main', { cr: 9000, r: 3, out: 900 }), r('b', 'grafsiz', 'sub', { r: 2 }),
     r('c', '', 'main', {}),
   ]
   const ex = stats(rs, { days: 7, now }).experiments
   assert.deepEqual(ex.map(x => [x.tag, x.sessions]), [['grafli', 1], ['grafsiz', 1]])
-  assert.equal(ex[0].tok, 5200 + 1200)
+  assert.equal(ex[0].tok, 200 + 200, 'yeni token: çıkış + cache yazma (cache okuma dahil değil)')
+  assert.equal(ex[0].cr, 5000 + 1000)
   assert.equal(ex[0].graph, 1)
   assert.equal(ex[1].graph, 0)
   assert.ok(ex[1].mainShare > 0.8)

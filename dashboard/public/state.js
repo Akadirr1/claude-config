@@ -222,7 +222,7 @@ export function warn(sid, key, ev) {
 function sample(v) {
   const xs = bucket(S.samples, v.id, () => [])
   const t = v.receivedAt
-  const tok = v.totals.in + v.totals.out + v.totals.cr + v.totals.cw
+  const tok = v.totals.in + v.totals.out + v.totals.cw
   if (!xs.length || xs.at(-1).tok !== tok || t - xs.at(-1).t > 60000) xs.push({ t, cost: v.totals.cost, tok })
   while (xs.length > 240) xs.shift()
 }
@@ -331,7 +331,7 @@ export function anomalies(a, v) {
   if (n && n.n >= 3) {
     const dur = now - a.startedAt
     if (n.medDur && dur > Math.max(2 * n.medDur, 5 * 60e3)) out.push({ k: 'slow', text: `sınıf ortancasının ${(dur / n.medDur).toFixed(1)}× süresi` })
-    const tok = a.tokens.in + a.tokens.out + a.tokens.cr + a.tokens.cw
+    const tok = a.tokens.in + a.tokens.out + a.tokens.cw
     if (n.medTok && tok > Math.max(3 * n.medTok, 200_000)) out.push({ k: 'costly', text: `sınıf ortancasının ${(tok / n.medTok).toFixed(1)}× tokeni` })
   }
   return out

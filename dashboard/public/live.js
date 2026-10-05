@@ -9,7 +9,7 @@ import {
   S, serverNow, modNow, current, findAgent, runOf, lastStepT, runEnd, sessionStart, isLive, seenOf, anomalies, warn, allAgents,
 } from './state.js'
 
-const peakOf = a => a.series.reduce((m, p) => Math.max(m, p.c), 0)
+const peakOf = a => a.series.reduce((m, p) => Math.max(m, p.c), a.ctx?.peak ?? 0) // mod'un ctx zirvesi seri kırpılsa da doğru
 
 let api = { render() {}, openSession() {} }
 export const initLive = a => (api = a)
@@ -88,9 +88,9 @@ function renderSessbar(v) {
     h('span', { class: `chip run-st ${liveNow ? 's-running' : 's-done'}`, text: liveNow ? '● canlı' : '✓ sakin' }),
     h('div', { class: 'stats' },
       stat('süre', dur),
-      stat('token', h('span', { class: 'tok-stat' }, h('b', { class: 'num cost', text: fmtTok(totalTok(t)) }), tokBar(t)), tokTip(t)),
-      stat('giriş', fmtTok(t.in), 'cache dışı giriş tokeni'),
+      stat('yeni token', h('span', { class: 'tok-stat' }, h('b', { class: 'num cost', text: fmtTok(totalTok(t)) }), tokBar(t)), tokTip(t)),
       stat('çıkış', fmtTok(t.out)),
+      stat('tekrar okunan', fmtTok(t.cr), 'cache okuma: her istekte bağlamın tekrar okunması; fiyatı girişin onda biri, yeni token\'a dahil değil'),
       stat('zirve bağlam', fmtTok(Math.max(0, ...allAgents(v).map(peakOf))), 'bir agent\'ın tek istekte ulaştığı en büyük bağlam (giriş + cache)'),
       stat('$', fmtCost(t.cost), 'API liste fiyatıyla karşılığı (abonelik faturası farklıdır)'),
       stat('cache', fmtPct(hit), 'cache okumanın toplam girişe oranı: yüksek = ucuz'),
@@ -263,7 +263,7 @@ async function toggleCompare(run) {
   if (S.cmp) S.cmp.busy = false
   api.render()
 }
-const tk = x => (num(x?.in) ?? 0) + (num(x?.out) ?? 0) + (num(x?.cr) ?? 0) + (num(x?.cw) ?? 0)
+const tk = x => (num(x?.in) ?? 0) + (num(x?.out) ?? 0) + (num(x?.cw) ?? 0)
 function renderCompare(run) {
   const box = $('cmp')
   const c = S.cmp
@@ -671,13 +671,13 @@ function tokenView(a) {
   const hit = inTot ? t.cr / inTot : 0
   const waste = t.cw >= 20000 && t.cr < t.cw
   return h('div', { class: 'tok' },
-    h('p', { class: 'tok-cost' }, h('b', { class: 'num', text: fmtTok(totalTok(t)) }), h('span', { class: 'muted', text: ` token · ${t.n} istek · ${fmtCost(t.cost)} karşılığı` })),
+    h('p', { class: 'tok-cost' }, h('b', { class: 'num', text: fmtTok(totalTok(t)) }), h('span', { class: 'muted', text: ` yeni token · ${t.n} istek · ${fmtTok(t.cr)} tekrar okunan · ${fmtCost(t.cost)} karşılığı` })),
     tokBar(t, 'wide'), tokLegend(),
     h('ul', { class: 'tok-rows' }, rows.map(([k, label, n]) => h('li', {},
       h('span', { class: 'tk-k', text: label }), h('span', { class: 'tk-bar' }, h('span', { class: `tk-${k}`, style: `width:${(n / max) * 100}%` })), h('span', { class: 'tk-n num', text: fmtTok(n) })))),
     h('p', { class: 'small' }, h('b', { text: `cache isabeti ${fmtPct(hit)}` }), h('span', { class: 'muted', text: ' · girişin cache\'ten okunan payı (yüksek = ucuz)' })),
     waste ? h('p', { class: 'warns', text: `⚠ cache'e ${fmtTok(t.cw)} yazdı, yalnız ${fmtTok(t.cr)} okudu: yazma bedeli geri dönmemiş` }) : null,
-    models.length > 1 ? h('ul', { class: 'mono-list' }, models.map(([m, x]) => h('li', { text: `${model(m)}: ${fmtTok(x.in + x.out + x.cr + x.cw)} · ${fmtCost(x.cost)}` }))) : null)
+    models.length > 1 ? h('ul', { class: 'mono-list' }, models.map(([m, x]) => h('li', { text: `${model(m)}: ${fmtTok(x.in + x.out + x.cw)} yeni · ${fmtCost(x.cost)}` }))) : null)
 }
 
 // Bağlam eğrisi: her model isteğinde bağlam (giriş + cache) ve içindeki cache okuma payı; en büyük sıçramalar işaretli

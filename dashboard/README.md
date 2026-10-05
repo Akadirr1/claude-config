@@ -27,8 +27,9 @@ Cloud ortamında (setup script'i `install.sh` çalıştıran) `WF_MONITOR_URL=ht
 - **Canlı:** Şef kartı (hedef, durum, araç karışımı, graf-önce oranı), takımyıldız (Şef ve doğurduğu
   agent/run'lar), seçili workflow'un phase × tur grafiği (zaman yolculuğu, kritik yol, paralellik, benzer
   run'ların ortalama maliyeti), oturum geneli zaman çubukları, olay akışı (doğum, devir, bitiş, hata, uyarı).
-- **Token** (birim düğmesi `tok`/`$`; varsayılan token): aralık ve repo filtresi; giriş / cache yazma / cache okuma /
-  çıkış ayrı; günlük token (sınıflara göre), sınıf/model/repo kırılımı ve cache isabeti, **graphify karnesi**
+- **Token** (birim düğmesi `tok`/`$`; varsayılan token): **yeni token = giriş + cache yazma + çıkış**. Cache okuma
+  (her model isteğinde bağlamın tekrar okunması; fiyatı girişin onda biri) "tekrar okunan" olarak ayrı gösterilir ve
+  toplama katılmaz; katılsa iş ~10 kat büyük görünür. Aralık ve repo filtresi; günlük token (sınıflara göre), sınıf/model/repo kırılımı ve cache isabeti, **graphify karnesi**
   (sınıf bazında grafı kullanan vs dosya tarayan agent'ların ortanca bağlam tokeni), **bağlamı kim şişirdi** (iki
   model isteği arasındaki bağlam artışı aradaki araç çağrılarına yazılır; araç adına göre toplam ve en büyük
   sıçramalar), **cache israfı** (cache'e yazıp geri okumayan agent'lar), en çok token yakan agent'lar, workflow başına
