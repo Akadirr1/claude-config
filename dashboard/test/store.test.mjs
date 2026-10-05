@@ -67,8 +67,34 @@ test('bağlam şişmesi: önceki çıkış düşülür, artış aradaki araçlar
   const b = bloatOf([{ c: 1000, o: 200, x: [] }, { c: 41200, o: 50, x: ['Read: big.js', 'Grep: x'] }, { c: 41300, o: 10, x: ['Bash: ls'] }, { c: 40000, o: 0, x: ['Read: y'] }, 'çöp', { c: 'x' }])
   assert.equal(b.peak, 41300)
   assert.deepEqual(b.jumps[0], { d: 40000, x: 'Read: big.js · Grep: x' })
-  assert.deepEqual(b.byTool, { Read: 20000, Grep: 20000, Bash: 50 })
-  assert.deepEqual(bloatOf(undefined), { peak: 0, jumps: [], byTool: {} })
+  assert.deepEqual({ ...b.byTool }, { Read: 20000, Grep: 20000, Bash: 50 })
+  const e = bloatOf(undefined)
+  assert.deepEqual([e.peak, e.jumps, { ...e.byTool }], [0, [], {}])
+})
+
+test('bağlam şişmesi: mod özeti öncelikli, inceltme boşluğu sıçrama değil, "constructor" adı ve dev seri güvenli', () => {
+  const fromCtx = bloatOf([{ c: 10, o: 0, x: [] }], { peak: 9e9, byTool: { Read: 300, constructor: 5 }, jumps: [{ d: 300, x: 'Read: a' }, 'çöp'] })
+  assert.equal(fromCtx.peak, 1e9, 'sayılar sınırlı')
+  assert.equal(fromCtx.byTool.constructor, 5)
+  assert.equal(fromCtx.jumps.length, 1)
+  const gap = bloatOf([{ i: 1, c: 100, o: 0, x: [] }, { i: 90, c: 90000, o: 0, x: ['Read: f'] }, { i: 91, c: 91000, o: 0, x: ['Grep: g'] }])
+  assert.deepEqual(gap.jumps, [{ d: 1000, x: 'Grep: g' }])
+  const viaSeries = bloatOf([{ c: 1, o: 0, x: [] }, { c: 6, o: 0, x: ['constructor: x'] }])
+  assert.equal(viaSeries.byTool.constructor, 5)
+  const huge = Array.from({ length: 5000 }, (_, i) => ({ i: i + 1, c: i * 10, o: 0, x: [`T${i}: x`] }))
+  assert.equal(Object.keys(bloatOf(huge).byTool).length, 20)
+})
+
+test('merge: seri ve ctx push\'ta sınırlanır', () => {
+  const huge = Array.from({ length: 5000 }, (_, i) => ({ i: i + 1, c: i, o: 1e308, x: ['y'.repeat(500), 2, 'a', 'b', 'c', 'd'] }))
+  const rec = merge(null, { v: 3, session: { id: 'z', repo: 'o/r' }, epoch: 1, sentAt: 1, runs: [], subs: [{ id: 's1', series: huge, ctx: { peak: 'x', byTool: Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`t${i}`, i + 1])), jumps: [{ d: 1, x: 'z'.repeat(999) }] } }] }, 1)
+  const sub = rec.subs.s1
+  assert.equal(sub.series.length, 200)
+  assert.equal(sub.series[0].o, 1e9)
+  assert.deepEqual(sub.series[0].x.map(x => x.length), [80, 1, 1, 1])
+  assert.equal(Object.keys(sub.ctx.byTool).length, 20)
+  assert.equal(sub.ctx.jumps[0].x.length, 300)
+  assert.equal(sub.ctx.peak, 0)
 })
 
 test('token analizi: cache israfı, sınıf bazında graf karnesi, şişiren araçlar, run karşılaştırma', () => {

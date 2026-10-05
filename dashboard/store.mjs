@@ -74,15 +74,18 @@ export function merge(prev, raw, receivedAt) {
   rec.sentAt = Number.isFinite(body.sentAt) ? body.sentAt : receivedAt
   const epoch = String(num(body.epoch))
   rec.lastEpoch = epoch
-  if (isObj(body.main)) rec.mains[epoch] = body.main
+  if (isObj(body.main)) cleanCtx((rec.mains[epoch] = body.main))
   if (isObj(body.misc)) rec.misc[epoch] = body.misc
   for (const map of [rec.mains, rec.misc]) {
     const keys = Object.keys(map)
     for (const k of keys.slice(0, Math.max(0, keys.length - MAX_EPOCHS))) delete map[k]
   }
   if (body.art !== undefined) rec.art = mergeArt(rec.art, body.art)
-  for (const s of body.subs ?? []) rec.subs[s.id] = s
-  for (const r of body.runs) rec.runs[r.taskId] = r
+  for (const s of body.subs ?? []) cleanCtx((rec.subs[s.id] = s))
+  for (const r of body.runs) {
+    rec.runs[r.taskId] = r
+    if (Array.isArray(r.agents)) r.agents.forEach(cleanCtx)
+  }
   cap(rec.subs, MAX_SUBS, s => num(s.startedAt))
   cap(rec.runs, MAX_RUNS, r => num(r.startedAt))
   return rec
@@ -171,14 +174,42 @@ const running = v =>
   v.subs.some(s => s.status === 'running') ||
   v.runs.some(r => r.status === 'running')
 
-// Bağlam serisinden şişme: iki istek arasındaki bağlam artışı (önceki çıkış düşülür; o da bağlama girer)
-// aradaki araçlara yazılır. Dönüş: zirve bağlam, en büyük 3 sıçrama, araç adına göre toplam.
-export function bloatOf(series) {
-  const pts = (Array.isArray(series) ? series : []).filter(isObj).map(p => ({ c: num(p.c), o: num(p.o), x: Array.isArray(p.x) ? p.x.filter(x => typeof x === 'string').slice(0, 4).map(x => str(x, 80)) : [] }))
-  const out = { peak: 0, jumps: [], byTool: {} }
-  for (let i = 0; i < pts.length; i++) {
-    out.peak = Math.max(out.peak, pts[i].c)
-    if (!i) continue
+// Bağlam serisi ve özeti push token'ından gelir: sınırlanır (nokta sayısı, metin boyu, sayı aralığı)
+const MAX_SERIES = 200
+const tokN = v => (Number.isFinite(v) && v > 0 ? Math.min(v, 1e9) : 0)
+function cleanCtx(a) {
+  if (!isObj(a)) return
+  if (Array.isArray(a.series))
+    a.series = a.series.slice(-MAX_SERIES).filter(isObj).map(p => ({
+      t: num(p.t), i: tokN(p.i), c: tokN(p.c), o: tokN(p.o), r: tokN(p.r), w: tokN(p.w),
+      x: Array.isArray(p.x) ? p.x.filter(x => typeof x === 'string').slice(0, 4).map(x => str(x, 80)) : [],
+    }))
+  else delete a.series
+  if (isObj(a.ctx)) {
+    const bt = Object.entries(isObj(a.ctx.byTool) ? a.ctx.byTool : {}).map(([k, v]) => [str(k, 60), tokN(v)]).filter(([k, v]) => k && v).sort((x, y) => y[1] - x[1]).slice(0, 20)
+    a.ctx = {
+      peak: tokN(a.ctx.peak),
+      byTool: Object.assign(Object.create(null), Object.fromEntries(bt)),
+      jumps: (Array.isArray(a.ctx.jumps) ? a.ctx.jumps : []).filter(isObj).slice(0, 3).map(j => ({ d: tokN(j.d), x: str(j.x, 300) })),
+    }
+  } else delete a.ctx
+}
+
+// Şişme özeti: mod'un bütün istekler üzerinden tuttuğu ctx varsa o (seri kırpılsa da doğru); yoksa seriden.
+// Seride sıçrama = bağlam artışı − önceki çıkış; aradaki araçlara bölünür; inceltilmiş boşluk (i atlaması) sayılmaz.
+export function bloatOf(series, ctx) {
+  const out = { peak: 0, jumps: [], byTool: Object.create(null) }
+  const pts = (Array.isArray(series) ? series : []).slice(-MAX_SERIES).filter(isObj)
+    .map(p => ({ i: tokN(p.i), c: tokN(p.c), o: tokN(p.o), x: Array.isArray(p.x) ? p.x.filter(x => typeof x === 'string').slice(0, 4).map(x => str(x, 80)) : [] }))
+  for (const p of pts) out.peak = Math.max(out.peak, p.c)
+  if (isObj(ctx)) {
+    out.peak = Math.max(out.peak, tokN(ctx.peak))
+    for (const [k, v] of Object.entries(isObj(ctx.byTool) ? ctx.byTool : {}).slice(0, 20)) if (tokN(v)) out.byTool[str(k, 60)] = tokN(v)
+    out.jumps = (Array.isArray(ctx.jumps) ? ctx.jumps : []).filter(isObj).slice(0, 3).map(j => ({ d: tokN(j.d), x: str(j.x, 300) }))
+    return out
+  }
+  for (let i = 1; i < pts.length; i++) {
+    if (pts[i].i && pts[i - 1].i && pts[i].i - pts[i - 1].i !== 1) continue
     const d = pts[i].c - pts[i - 1].c - pts[i - 1].o
     if (d <= 0 || !pts[i].x.length) continue
     out.jumps.push({ d, x: pts[i].x.join(' · ') })
@@ -186,6 +217,8 @@ export function bloatOf(series) {
     for (const n of names) out.byTool[n] = (out.byTool[n] ?? 0) + d / names.length
   }
   out.jumps = out.jumps.sort((a, b) => b.d - a.d).slice(0, 3)
+  const top = Object.entries(out.byTool).sort((a, b) => b[1] - a[1]).slice(0, 20)
+  out.byTool = Object.assign(Object.create(null), Object.fromEntries(top))
   return out
 }
 
@@ -200,7 +233,7 @@ export function rows(v) {
       sid: v.id, repo: v.repo, kind, id: a.id ?? 'main', label: str(a.label, 120) || (kind === 'main' ? 'Şef' : '?'), cls: a.cls,
       agentType: str(a.agentType, 80), model: a.model ?? '', status: a.status ?? '', start: ts(a.startedAt), end: ts(a.endedAt),
       in: t.in, out: t.out, cr: t.cr, cw: t.cw, n: t.n, cost: t.cost, g: num(a.graph?.g), r: num(a.graph?.r), ...extra,
-      ...(({ peak, jumps, byTool }) => ({ peak, jumps, bt: byTool }))(bloatOf(a.series)),
+      ...(({ peak, jumps, byTool }) => ({ peak, jumps, bt: byTool }))(bloatOf(a.series, a.ctx)),
     })
   }
   if (v.main) row('main', v.main, { start: ts(v.main.startedAt) || v.firstAt, end: v.receivedAt, status: v.main.status ?? '' })
@@ -314,7 +347,9 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
   graphify.byClass = [...new Set(agents.map(r => r.cls))].map(cls => {
     const xs = agents.filter(r => r.cls === cls)
     const w = xs.filter(r => r.g > 0), wo = xs.filter(r => r.g === 0)
-    return { cls, with: { n: w.length, med: median(w.map(ctx)), peak: median(w.map(r => r.peak)) }, without: { n: wo.length, med: median(wo.map(ctx)), peak: median(wo.map(r => r.peak)) } }
+    // eski (serisiz) satırların zirvesi 0'dır: ortancaya katılmaz
+    const pk = xs => median(xs.map(r => r.peak).filter(p => p > 0))
+    return { cls, with: { n: w.length, med: median(w.map(ctx)), peak: pk(w) }, without: { n: wo.length, med: median(wo.map(ctx)), peak: pk(wo) } }
   }).filter(x => x.with.n + x.without.n > 0).sort((a, b) => b.with.n + b.without.n - (a.with.n + a.without.n))
   const top = [...agents].sort((a, b) => b.cost - a.cost).slice(0, 12)
   const tok = r => r.in + r.out + r.cr + r.cw
@@ -322,8 +357,9 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
   // cache verimliliği: yazıp geri okumayan (cache write pahalı, okunmazsa boşa) agent'lar
   const cacheWaste = agents.filter(r => r.cw >= 20000 && r.cr < r.cw).sort((a, b) => b.cw - b.cr - (a.cw - a.cr)).slice(0, 10)
   // bağlamı kim şişirdi: araç adına göre toplam ve en büyük tek sıçramalar
-  const bt = new Map()
+  const bt = new Map() // Map: araç adı "constructor" gibi olsa da güvenli
   for (const r of rs) for (const [k, d] of Object.entries(r.bt ?? {})) {
+    if (!Number.isFinite(d)) continue
     const e = bt.get(k) ?? bt.set(k, { tool: k, tok: 0, agents: 0 }).get(k)
     e.tok += d
     e.agents++
