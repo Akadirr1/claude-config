@@ -154,12 +154,12 @@ function totals(main, subs, runs, misc) {
     for (const k of ['cost', 'in', 'out', 'cr', 'cw', 'n']) t[k] += x[k]
     const c = (t.byClass[cls] ??= { cost: 0, tokens: 0, n: 0 })
     c.cost += x.cost
-    c.tokens += x.in + x.out + x.cr + x.cw
+    c.tokens += x.in + x.out + x.cw
     c.n++
     for (const [m, y] of Object.entries(x.models)) {
       const z = (t.byModel[m] ??= { cost: 0, tokens: 0 })
       z.cost += y.cost
-      z.tokens += y.in + y.out + y.cr + y.cw
+      z.tokens += y.in + y.out + y.cw
     }
     t.graph.g += num(a.graph?.g)
     t.graph.r += num(a.graph?.r)
@@ -275,6 +275,8 @@ const median = xs => {
 // tz: UTC'ye göre dakika (Türkiye +180); gün sınırları kullanıcının saatine göre
 const dayOf = (t, tz = 0) => new Date(t + tz * 60000).toISOString().slice(0, 10)
 
+// Token ölçüsü "yeni token" = giriş + cache yazma + çıkış. Cache okuma (her istekte bağlamın tekrar okunması,
+// fiyatı girişin onda biri) ayrı alan (cr) olarak kalır; toplamlara katılmaz, yoksa iş ~10 kat büyük görünür.
 // Analiz: rows → toplamlar, gün/sınıf/model/repo/workflow kırılımı, graphify etkisi, ısı haritası, sınıf normları
 export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 } = {}) {
   const from = days > 0 ? now - days * DAY : 0
@@ -291,9 +293,9 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
       if (k == null || k === '') continue
       const g = m.get(k) ?? { key: k, cost: 0, tokens: 0, in: 0, out: 0, cr: 0, cw: 0, n: 0, durs: [], costs: [], toks: [] }
       g.cost += r.cost
-      g.tokens += r.in + r.out + r.cr + r.cw
+      g.tokens += r.in + r.out + r.cw
       for (const x of ['in', 'out', 'cr', 'cw']) g[x] += r[x]
-      g.toks.push(r.in + r.out + r.cr + r.cw)
+      g.toks.push(r.in + r.out + r.cw)
       g.n++
       if (r.end > r.start && r.start) g.durs.push(r.end - r.start)
       g.costs.push(r.cost)
@@ -310,7 +312,7 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
   for (const r of rs) {
     const d = dayOf(r.start || r.end, tz)
     const e = dayCost.get(d) ?? { cost: 0, tok: 0, byClass: {}, byClassTok: {} }
-    const tk = r.in + r.out + r.cr + r.cw
+    const tk = r.in + r.out + r.cw
     e.cost += r.cost
     e.tok += tk
     e.byClass[r.cls] = (e.byClass[r.cls] ?? 0) + r.cost
@@ -328,7 +330,7 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
     const d = dayOf(r.start || r.end, tz)
     const e = allDay.get(d) ?? allDay.set(d, { cost: 0, tok: 0 }).get(d)
     e.cost += r.cost
-    e.tok += r.in + r.out + r.cr + r.cw
+    e.tok += r.in + r.out + r.cw
   }
   for (let i = 83; i >= 0; i--) {
     const d = dayOf(now - i * DAY, tz)
@@ -358,7 +360,7 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
     return { cls, with: { n: w.length, med: median(w.map(ctx)), peak: pk(w) }, without: { n: wo.length, med: median(wo.map(ctx)), peak: pk(wo) } }
   }).filter(x => x.with.n + x.without.n > 0).sort((a, b) => b.with.n + b.without.n - (a.with.n + a.without.n))
   const top = [...agents].sort((a, b) => b.cost - a.cost).slice(0, 12)
-  const tok = r => r.in + r.out + r.cr + r.cw
+  const tok = r => r.in + r.out + r.cw
   const topTok = [...agents].sort((a, b) => tok(b) - tok(a)).slice(0, 12)
   // cache verimliliği: yazıp geri okumayan (cache write pahalı, okunmazsa boşa) agent'lar
   const cacheWaste = agents.filter(r => r.cw >= 20000 && r.cr < r.cw).sort((a, b) => b.cw - b.cr - (a.cw - a.cr)).slice(0, 10)
@@ -383,7 +385,7 @@ export function stats(allRows, { days = 7, repo = '', now = Date.now(), tz = 0 }
   for (const r of rs) {
     if (!r.tag) continue
     const e = bySess.get(r.sid) ?? bySess.set(r.sid, { sid: r.sid, tag: r.tag, tok: 0, in: 0, out: 0, cr: 0, cw: 0, n: 0, agents: 0, main: 0, g: 0, r: 0, peak: 0, start: r.start || r.end }).get(r.sid)
-    const tk = r.in + r.out + r.cr + r.cw
+    const tk = r.in + r.out + r.cw
     e.tok += tk
     for (const k of ['in', 'out', 'cr', 'cw', 'n', 'g', 'r']) e[k] += r[k]
     if (r.kind === 'main') e.main += tk

@@ -85,10 +85,12 @@ export function fmtTok(v) {
 }
 export const fmtPct = v => `${Math.round((num(v) ?? 0) * 100)}%`
 export const model = m => (m ? shortModel(m) : '—')
-export const totalTok = t => (t ? t.in + t.out + t.cr + t.cw : 0)
+// Yeni token: giriş + cache yazma + çıkış (agent'ın gerçekten ürettiği/yazdırdığı). Cache okuma ayrı: her istekte
+// bağlamın tekrar okunması, toplama katılsa iş ~10 kat büyük görünür.
+export const totalTok = t => (t ? (t.in || 0) + (t.out || 0) + (t.cw || 0) : 0)
 
 // ---- birim: varsayılan token (giriş + çıkış + cache okuma + cache yazma); $ isteğe bağlı
-export const TOK_KINDS = [['in', 'giriş'], ['cw', 'cache yazma'], ['cr', 'cache okuma'], ['out', 'çıkış']]
+export const TOK_KINDS = [['in', 'giriş'], ['cw', 'cache yazma'], ['out', 'çıkış']]
 let unitNow = (() => { try { return localStorage.getItem('wf-unit') === 'usd' ? 'usd' : 'tok' } catch { return 'tok' } })()
 export const unit = () => unitNow
 export function setUnit(u) {
@@ -99,7 +101,7 @@ export function setUnit(u) {
 export const amtOf = t => (unitNow === 'usd' ? num(t?.cost) ?? 0 : totalTok(t))
 export const amt = t => (unitNow === 'usd' ? fmtCost(t?.cost) : fmtTok(totalTok(t)))
 export const amtNum = (cost, tok) => (unitNow === 'usd' ? fmtCost(cost) : fmtTok(tok))
-export const tokTip = t => TOK_KINDS.map(([k, n]) => `${n} ${fmtTok(t?.[k])}`).join(' · ') + ` · ${fmtCost(t?.cost)}`
+export const tokTip = t => `yeni ${fmtTok(totalTok(t))} = ` + TOK_KINDS.map(([k, n]) => `${n} ${fmtTok(t?.[k])}`).join(' + ') + ` · tekrar okunan (cache) ${fmtTok(t?.cr)} · ${fmtCost(t?.cost)}`
 export const tokLegend = () => h('span', { class: 'tk-legend' }, TOK_KINDS.map(([k, n]) => h('span', { class: 'lg' }, h('i', { class: `tk-sw tk-${k}`, 'aria-hidden': 'true' }), n)))
 // İnce yığılmış şerit: giriş / cache yazma / cache okuma / çıkış (sabit sıra, 1px boşluk)
 export function tokBar(t, cls = '') {

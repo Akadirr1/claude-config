@@ -154,17 +154,18 @@ function graphByClass(list) {
 
 const openRow = r => ({ tabindex: '0', class: 'clickable', onclick: () => api.openAgent(str(r.sid), str(r.id)), onkeydown: e => e.key === 'Enter' && api.openAgent(str(r.sid), str(r.id)) })
 const agentCell = r => h('td', {}, h('span', { class: 'cell-a' }, glyph(clsKey(r.cls), 16), h('span', { text: str(r.label) })))
-const tokOf = r => (num(r.in) ?? 0) + (num(r.out) ?? 0) + (num(r.cr) ?? 0) + (num(r.cw) ?? 0)
+const tokOf = r => (num(r.in) ?? 0) + (num(r.out) ?? 0) + (num(r.cw) ?? 0)
 function topAgents(list) {
   const xs = arr(list)
   if (!xs.length) return h('p', { class: 'muted', text: 'Veri yok.' })
   return h('div', { class: 'tbl-w' }, h('table', { class: 'tbl' },
-    h('thead', {}, h('tr', {}, ['agent', 'model', 'giriş', 'cache yazma', 'cache okuma', 'çıkış', 'zirve bağlam', 'toplam', '$'].map(x => h('th', { scope: 'col', text: x })))),
+    h('thead', {}, h('tr', {}, ['agent', 'model', 'giriş', 'cache yazma', 'çıkış', 'yeni token', 'zirve bağlam', 'tekrar okunan', '$'].map(x => h('th', { scope: 'col', text: x })))),
     h('tbody', {}, xs.map(r => h('tr', openRow(r),
       agentCell(r),
       h('td', { class: 'mono', text: model(str(r.model)) }),
-      ...['in', 'cw', 'cr', 'out', 'peak'].map(k => h('td', { class: 'num', text: fmtTok(r[k]) })),
+      ...['in', 'cw', 'out'].map(k => h('td', { class: 'num', text: fmtTok(r[k]) })),
       h('td', { class: 'num strong' }, fmtTok(tokOf(r)), tokBar(r)),
+      ...['peak', 'cr'].map(k => h('td', { class: 'num muted', text: fmtTok(r[k]) })),
       h('td', { class: 'num muted', text: fmtCost(r.cost) }))))))
 }
 
@@ -193,9 +194,9 @@ function experiments(list) {
   const a = xs.find(x => x.tag === 'grafli'), b = xs.find(x => /^(grafs[iı]z|nograph|no-graph)$/.test(str(x.tag)))
   const verdict = a && b && b.tok ? (() => {
     const d = 1 - a.tok / b.tok
-    return `Graflı session'lar ortancada grafsızlara göre %${Math.abs(Math.round(d * 100))} ${d >= 0 ? 'daha az' : 'daha fazla'} token yaktı (${fmtTok(a.tok)} / ${fmtTok(b.tok)}; ${a.sessions} + ${b.sessions} session).`
+    return `Graflı session'lar ortancada grafsızlara göre %${Math.abs(Math.round(d * 100))} ${d >= 0 ? 'daha az' : 'daha fazla'} yeni token üretti (${fmtTok(a.tok)} / ${fmtTok(b.tok)}; ${a.sessions} + ${b.sessions} session).`
   })() : null
-  const cols = [['tag', 'deney'], ['sessions', 'session'], ['tok', 'ortanca token'], ['cw', 'cache yazma'], ['out', 'çıkış'], ['n', 'istek'], ['agents', 'agent'], ['peak', 'zirve bağlam'], ['mainShare', 'Şef payı'], ['graph', 'graf-önce']]
+  const cols = [['tag', 'deney'], ['sessions', 'session'], ['tok', 'ortanca yeni token'], ['cw', 'cache yazma'], ['out', 'çıkış'], ['cr', 'tekrar okunan'], ['n', 'istek'], ['agents', 'agent'], ['peak', 'zirve bağlam'], ['mainShare', 'Şef payı'], ['graph', 'graf-önce']]
   const cell = (x, k) => (k === 'tag' ? h('td', {}, h('span', { class: 'tag-chip', text: str(x.tag) })) : h('td', { class: 'num', text: k === 'mainShare' || k === 'graph' ? fmtPct(x[k]) : k === 'sessions' || k === 'n' || k === 'agents' ? String(Math.round(num(x[k]) ?? 0)) : fmtTok(x[k]) }))
   return h('div', { class: 'gi' },
     verdict ? h('p', { class: 'gi-verdict', text: verdict }) : null,
@@ -268,19 +269,19 @@ export function renderCosts() {
   const d = st.data
   if (!d && !st.busy && !st.err) return void load()
   const t = obj(d?.totals)
-  const tot = (num(t.in) ?? 0) + (num(t.out) ?? 0) + (num(t.cr) ?? 0) + (num(t.cw) ?? 0)
+  const tot = (num(t.in) ?? 0) + (num(t.out) ?? 0) + (num(t.cw) ?? 0)
   const sessions = num(t.sessions) ?? 0
   const gi = obj(d?.graphify)
   const usd = unit() === 'usd'
   put(box,
     h('div', { class: 'costs-head' }, h('h1', { class: 'v-title', text: usd ? 'Maliyet ve token' : 'Token ve maliyet' }),
-      h('p', { class: 'muted', text: 'Token: giriş + cache yazma + cache okuma + çıkış. $ değerleri API liste fiyatıyla karşılıktır; abonelikte fatura farklıdır.' }), controls()),
+      h('p', { class: 'muted', text: 'Yeni token = giriş + cache yazma + çıkış. Cache okuma (her model isteğinde bağlamın tekrar okunması, fiyatı girişin onda biri) ayrı gösterilir ve toplama katılmaz. $ değerleri API liste fiyatıyla karşılıktır.' }), controls()),
     st.err ? h('p', { class: 'err', text: st.err }) : null,
     d ? h('div', { class: 'kpis' },
-      kpi('toplam token', fmtTok(tot), `${sessions} session · ${num(t.agents) ?? 0} agent · ${num(t.n) ?? 0} istek`, tokTip(t)),
+      kpi('yeni token', fmtTok(tot), `${sessions} session · ${num(t.agents) ?? 0} agent · ${num(t.n) ?? 0} istek`, tokTip(t)),
       kpi('giriş', fmtTok(t.in), 'cache dışı'),
       kpi('cache yazma', fmtTok(t.cw)),
-      kpi('cache okuma', fmtTok(t.cr), `isabet ${fmtPct(t.cacheHit)}`, 'cache okumanın toplam girişe oranı: yüksek = ucuz'),
+      kpi('tekrar okunan', fmtTok(t.cr), `cache okuma · isabet ${fmtPct(t.cacheHit)} · toplama dahil değil`, 'her istekte bağlamın cache\'ten tekrar okunması; fiyatı girişin onda biri'),
       kpi('çıkış', fmtTok(t.out)),
       kpi('session başı', amtNum(sessions ? (num(t.cost) ?? 0) / sessions : 0, sessions ? tot / sessions : 0)),
       kpi('graf-önce', fmtPct((obj(gi.with).n ?? 0) / Math.max(1, (obj(gi.with).n ?? 0) + (obj(gi.without).n ?? 0))), 'graphify kullanan agent payı'),
@@ -292,7 +293,7 @@ export function renderCosts() {
       panel('Graphify karnesi', 'grafı kullanan vs dosya tarayan', graphImpact(d.graphify)),
       arr(d.experiments).length ? panel('Deneyler', 'etiket başına ortanca', experiments(d.experiments), 'span2') : null,
       panel('Bağlamı kim şişirdi', 'iki istek arası bağlam artışı, araçlara göre', bloatView(d.bloat), 'span2'),
-      panel(usd ? 'En pahalı agent\'lar' : 'En çok token yakan agent\'lar', 'tıklayınca session açılır', topAgents(usd ? d.top : d.topTok), 'span2'),
+      panel(usd ? 'En pahalı agent\'lar' : 'En çok yeni token üreten agent\'lar', 'tıklayınca session açılır', topAgents(usd ? d.top : d.topTok), 'span2'),
       panel('Cache israfı', 'cache\'e yazıp geri okumayanlar', cacheWaste(d.cacheWaste)),
       panel('Modeller', `${usd ? 'maliyet' : 'token'} · cache isabeti`, plainBars(d.byModel, k => model(str(k)))),
       panel('Repolar', `${usd ? 'maliyet' : 'token'} · cache isabeti`, plainBars(d.byRepo, k => str(k))),
