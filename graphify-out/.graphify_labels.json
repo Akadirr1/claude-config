@@ -6,7 +6,7 @@
   "4": "flow.test.ts",
   "5": "simulate.mjs",
   "6": "app.js",
-  "7": "live.js",
+  "7": "state.js",
   "8": "install.sh",
   "9": "fable-reviewer.md",
   "10": "reviewer-high.md",
@@ -17,10 +17,10 @@
   "15": "store.mjs",
   "16": "login.js",
   "17": "automations.js",
-  "18": "$",
+  "18": "live.js",
   "19": "register",
   "20": "push",
   "21": "finish",
-  "22": "clip",
+  "22": "cut",
   "23": "worker.md"
 }
