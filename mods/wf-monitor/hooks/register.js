@@ -67,7 +67,10 @@ export const GRAPH_HINT =
   '`graphify path A B`, `graphify explain X` — sonra yalnız gereken dosyaları aç. Codebase\'i baştan okumak token yakar.'
 export const withGraphHint = prompt => (/graphify/i.test(String(prompt ?? '')) ? prompt : String(prompt ?? '') + GRAPH_HINT)
 export const tagOf = text => /\[deney:([a-z0-9-]{1,30})\]/i.exec(String(text ?? ''))?.[1]?.toLowerCase() ?? ''
-export const noGraphTag = tag => /^(grafs[iı]z|nograph|no-graph)$/.test(tag)
+export const noGraphTag = tag => /(^|-)(grafs[iı]z|nograph|no-graph)($|-)/.test(tag)
+// belleksiz deney: agentmemory MCP araçları reddedilir (bağlama otomatik enjeksiyon kapalıyken bellek yalnız bunlarla okunur)
+export const noMemoryTag = tag => /(^|-)(belleks[iı]z|nomemory|no-memory)($|-)/.test(tag)
+export const touchesMemory = e => /agentmemory/i.test(String(e.tool ?? ''))
 // grafsız deneyde graf erişimi sayılan çağrılar: graphify komutu/skill/MCP ve graphify-out dosyalarını okumak
 export const touchesGraph = e => graphHit(e) === 'g' || /graphify-out/.test(String(e.file_path ?? e.path ?? e.pattern ?? e.command ?? ''))
 
@@ -857,6 +860,7 @@ export function register(on) {
   on('tool.call', async ($, e, next) => {
     // grafsız deney: graf erişimi reddedilir ve sayılmaz (karşılaştırma temiz kalsın)
     if (noGraphTag(expTag) && touchesGraph(e)) return { deny: 'Bu ölçüm session\'ında (grafsız deney) graphify kapalı; dosyaları doğrudan oku.' }
+    if (noMemoryTag(expTag) && touchesMemory(e)) return { deny: 'Bu ölçüm session\'ında (belleksiz deney) agentmemory kapalı.' }
     const t = await $.clock.now()
     const text = short(mask(String(describe(e)).slice(0, 2000)), 160)
     if (!e.agentId) {

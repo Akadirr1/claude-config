@@ -41,7 +41,8 @@ Cloud ortamında (setup script'i `install.sh` çalıştıran) `WF_MONITOR_URL=ht
   agent tipleri (`worker` önerisi), çok tur atan agent'lar, grafı kullanmayan agent'lar, cache israfı, en büyük sıçrama.
 - **Token → Deneyler:** ilk mesajına `[deney:ad]` yazılan session'lar etiketlenir ve etiket başına ortancalarla
   karşılaştırılır. `[deney:grafsiz]` o session'da graphify'ı kapatır (mod graf çağrılarını reddeder), `[deney:grafli]`
-  ile aynı görev çalıştırılıp graphify'ın token etkisi ölçülür. Graf varken mod her alt agent'ın görevine kısa bir
+  ile aynı görev çalıştırılıp graphify'ın token etkisi ölçülür. `[deney:belleksiz]` agentmemory MCP araçlarını kapatır
+  (`[deney:bellekli]` ile karşılaştırılır); etiketler `grafsiz-belleksiz` gibi birleşebilir. Graf varken mod her alt agent'ın görevine kısa bir
   graphify ipucu ekler.
 - **Canlı → Eserler:** session'ın açtığı PR'lar, commit'ler ve değişen dosyalar; her birinin yanında onu üreten agent.
 - **Geçmiş:** bütün session'lar; sıralama, arama, sınıf karışımı şeridi.
