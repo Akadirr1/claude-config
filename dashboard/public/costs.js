@@ -186,6 +186,25 @@ function bloatView(b) {
     h('p', { class: 'muted small', text: 'Sıçrama = iki istek arasındaki bağlam artışı (önceki çıkış düşülür); aradaki araçlara eşit bölünür.' }))
 }
 
+// Deneyler: aynı işi farklı koşulda (ör. [deney:grafli] / [deney:grafsiz]) çalıştıran session'ların ortancaları
+function experiments(list) {
+  const xs = arr(list)
+  if (!xs.length) return null
+  const a = xs.find(x => x.tag === 'grafli'), b = xs.find(x => /^(grafs[iı]z|nograph|no-graph)$/.test(str(x.tag)))
+  const verdict = a && b && b.tok ? (() => {
+    const d = 1 - a.tok / b.tok
+    return `Graflı session'lar ortancada grafsızlara göre %${Math.abs(Math.round(d * 100))} ${d >= 0 ? 'daha az' : 'daha fazla'} token yaktı (${fmtTok(a.tok)} / ${fmtTok(b.tok)}; ${a.sessions} + ${b.sessions} session).`
+  })() : null
+  const cols = [['tag', 'deney'], ['sessions', 'session'], ['tok', 'ortanca token'], ['cw', 'cache yazma'], ['out', 'çıkış'], ['n', 'istek'], ['agents', 'agent'], ['peak', 'zirve bağlam'], ['mainShare', 'Şef payı'], ['graph', 'graf-önce']]
+  const cell = (x, k) => (k === 'tag' ? h('td', {}, h('span', { class: 'tag-chip', text: str(x.tag) })) : h('td', { class: 'num', text: k === 'mainShare' || k === 'graph' ? fmtPct(x[k]) : k === 'sessions' || k === 'n' || k === 'agents' ? String(Math.round(num(x[k]) ?? 0)) : fmtTok(x[k]) }))
+  return h('div', { class: 'gi' },
+    verdict ? h('p', { class: 'gi-verdict', text: verdict }) : null,
+    h('div', { class: 'tbl-w' }, h('table', { class: 'tbl' },
+      h('thead', {}, h('tr', {}, cols.map(([, t]) => h('th', { scope: 'col', text: t })))),
+      h('tbody', {}, xs.map(x => h('tr', {}, cols.map(([k]) => cell(x, k))))))),
+    h('p', { class: 'muted small', text: 'Session\'ın ilk mesajına [deney:ad] yazınca etiketlenir; [deney:grafsiz] o session\'da graphify\'ı kapatır.' }))
+}
+
 // Cache israfı: cache'e yazıp geri okumayan agent'lar (yazma pahalı, okunmazsa boşa)
 function cacheWaste(list) {
   const xs = arr(list)
@@ -271,6 +290,7 @@ export function renderCosts() {
       panel(usd ? 'Günlük maliyet' : 'Günlük token', 'sınıflara göre', h('div', {}, legend(d.byDay), dailyChart(d.byDay)), 'span2'),
       panel('Sınıflar', `${usd ? 'maliyet' : 'token'} · cache isabeti`, classBars(d.byClass)),
       panel('Graphify karnesi', 'grafı kullanan vs dosya tarayan', graphImpact(d.graphify)),
+      arr(d.experiments).length ? panel('Deneyler', 'etiket başına ortanca', experiments(d.experiments), 'span2') : null,
       panel('Bağlamı kim şişirdi', 'iki istek arası bağlam artışı, araçlara göre', bloatView(d.bloat), 'span2'),
       panel(usd ? 'En pahalı agent\'lar' : 'En çok token yakan agent\'lar', 'tıklayınca session açılır', topAgents(usd ? d.top : d.topTok), 'span2'),
       panel('Cache israfı', 'cache\'e yazıp geri okumayanlar', cacheWaste(d.cacheWaste)),

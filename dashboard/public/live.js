@@ -806,9 +806,54 @@ export function renderLive() {
   renderOrch(v)
   renderRunPanel(v, run)
   renderGantt(v)
+  renderTips(v)
   renderArt(v)
   renderFeed(v)
   renderDetail()
+}
+
+// ---------- token önerileri: bu session'ın verisinden çıkan, token düşürecek somut tespitler
+const tkOf = a => totalTok(a.tokens)
+const baseOf = a => a.ctx.base || (a.series[0] && (!a.series[0].i || a.series[0].i === 1) ? a.series[0].c : 0)
+const med = xs => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : 0)
+export function tipsOf(v) {
+  const all = allAgents(v)
+  const subs = all.filter(a => !a.main)
+  const total = all.reduce((n, a) => n + tkOf(a), 0)
+  const out = []
+  if (!total) return out
+  if (v.main && total > 200_000) {
+    const share = tkOf(v.main) / total
+    if (share >= 0.35) out.push({ k: 'chef', icon: '★', text: `Ana session (Şef) toplamın %${Math.round(share * 100)}'ini yaktı (${fmtTok(tkOf(v.main))}). Büyük dosya okumalarını ve uzun araştırmaları alt agent'a devret; agent'lar kısa özet dönsün.`, id: 'main' })
+  }
+  const byType = new Map()
+  for (const a of subs) {
+    const b = baseOf(a)
+    if (!b) continue
+    const k = a.agentType || (a.kind === 'wf' ? 'workflow' : 'alt agent')
+    ;(byType.get(k) ?? byType.set(k, []).get(k)).push(b)
+  }
+  for (const [k, xs] of byType) {
+    const m = med(xs)
+    if (m >= 45_000 && k !== 'worker') out.push({ k: 'base', icon: '▤', text: `${k} agent'ları ~${fmtTok(m)} bağlamla başlıyor (${xs.length} agent). MCP/web gerekmiyorsa \`worker\` tipi çok daha küçük tabanla başlar; her istekte bu taban yeniden okunur.` })
+  }
+  const nMed = med(subs.map(a => a.tokens.n).filter(Boolean))
+  for (const a of subs.filter(a => a.tokens.n >= 8 && a.tokens.n >= 3 * nMed).sort((x, y) => tkOf(y) - tkOf(x)).slice(0, 2))
+    out.push({ k: 'turns', icon: '↻', text: `${a.label} ${a.tokens.n} istek yaptı (ortanca ${nMed}) ve ${fmtTok(tkOf(a))} yaktı. Bekleme/yoklama döngüsü ya da gereksiz tur olabilir; bağlam eğrisine bak.`, id: a.id })
+  const noGraph = subs.filter(a => a.graph.r > 0 && a.graph.g === 0)
+  if (noGraph.length) out.push({ k: 'graph', icon: '◈', text: `${noGraph.length} agent grafı hiç kullanmadan dosya taradı: ${noGraph.slice(0, 3).map(a => a.label).join(', ')}${noGraph.length > 3 ? '…' : ''}.`, id: noGraph[0].id })
+  const waste = all.filter(a => a.tokens.cw >= 20_000 && a.tokens.cr < a.tokens.cw)
+  if (waste.length) out.push({ k: 'cache', icon: '⊘', text: `${waste.length} agent cache'e yazdığını geri okumadı (toplam ${fmtTok(waste.reduce((n, a) => n + a.tokens.cw, 0))} yazma).`, id: waste[0].id })
+  const jumps = all.flatMap(a => jumpsOf(a.series).slice(0, 1).map(j => ({ ...j, a }))).sort((x, y) => y.d - x.d)
+  if (jumps[0]?.d >= 20_000) out.push({ k: 'jump', icon: '⇡', text: `En büyük bağlam sıçraması +${fmtTok(jumps[0].d)}: ${jumps[0].a.label} — ${jumps[0].x}. Büyük dosyanın tamamı yerine graftan yeri bulup ilgili aralığı oku.`, id: jumps[0].a.id })
+  return out
+}
+function renderTips(v) {
+  const tips = v ? tipsOf(v) : []
+  $('tips-panel').hidden = !tips.length
+  $('tips').replaceChildren(...tips.map(t => h('li', { class: `tip-i t-${t.k}` },
+    h('span', { class: 'tip-ic', 'aria-hidden': 'true', text: t.icon }),
+    t.id ? h('button', { type: 'button', class: 'tip-b', onclick: () => openDetail(t.id), text: t.text }) : h('span', { text: t.text }))))
 }
 
 // ---------- eserler: commit'ler, PR'lar, değişen dosyalar (kim değiştirdi)
