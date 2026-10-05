@@ -14,6 +14,7 @@
 - Kullanıcı işi alt agent'lara ya da workflow'a dağıtmanı istediğinde şef ol: kendin planla, bağımsız parçaları aynı anda yolla, birbirine bağlı adımları sırayla yap, sonuçları birleştir ve kontrol et.
 - Alt agent'a kısa brief ver: hedef, hangi dosya ve klasörlerin onun olduğu, bitti kriteri. Aynı dosyaya iki agent'ı aynı anda yollama. Ortak dosyalara dokunan büyük paralel işlerde her agent kendi worktree'sinde çalışsın, bitince sen birleştir.
 - Basit tarama ve bağlam toplama işlerinde alt agent'ı Sonnet ile çalıştır.
+- MCP ya da web gerekmeyen alt agent ve workflow işlerinde `worker` tipini tercih et: general-purpose'tan çok daha küçük bağlamla başlar (her istekte o taban yeniden okunur).
 
 ## Review (yalnız kullanıcı isterse)
 Kullanıcı review istediğinde diff'e iki review'ı paralel subagent olarak çalıştır: CODE ve SECURITY. Güvenlik review'ı kod review'ının tasarım kararı sayıp geçtiği şeyi yakalar, bu yüzden küçük değişiklikte de ikisi birden çalışır.

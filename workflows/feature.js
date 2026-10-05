@@ -79,7 +79,7 @@ Görev: ${task}
 2. Repoyu oku; graphify-out/ varsa önce \`graphify query\` kullan.
 3. Test edilebilir kabul kriterlerini, değişmesi gereken dosyaları, kapsam dışı kalanları ve riskleri çıkar.
 Belirsiz bir nokta varsa en makul varsayımı yap ve risks alanına yaz.`,
-  { label: 'ba', phase: 'Analiz', schema: SPEC, effort: 'medium' },
+  { label: 'ba', phase: 'Analiz', agentType: 'worker', schema: SPEC, effort: 'medium' },
 )
 if (!spec) return { status: 'BA sonuç vermedi', task }
 
@@ -103,7 +103,7 @@ ${feedback ? `Önceki turdan kapatman gerekenler:\n${feedback}\n` : ''}
 Değişecek yerleri ve etkilenen çağıranları önce grafla bul (graphify-out/ varsa \`graphify query\`, \`graphify path\`); codebase'i baştan okuma.
 Kriterleri karşılayan en küçük değişikliği yap; kapsam dışına çıkma. Kriterler için test ekle, mevcut testleri kırma.
 Bitince commit at. Son mesajında değişen dosyaları ve neyi neden yaptığını kısaca yaz.`,
-    { label: `dev #${round}`, phase: 'Geliştirme', effort: 'high' },
+    { label: `dev #${round}`, phase: 'Geliştirme', agentType: 'worker', effort: 'high' },
   )
   if (!dev) return { status: 'dev sonuç vermedi', round, spec, last }
 
@@ -121,7 +121,7 @@ ${brief}
 Projenin test ve build komutlarını bul ve çalıştır (package.json scripts, Makefile vb.; graphify-out/ varsa önce \`graphify query\` ile bul); çalıştırdıklarını commands alanına yaz.
 Her kriteri kanıtla kontrol et: test adı, komut çıktısı ya da dosya:satır. Kanıtlayamadığın kriter ok=false olur.
 pass yalnızca bütün kriterler ok ve testler geçiyorsa true.`,
-      { label: `qa #${round}`, phase: 'QA', schema: QA, model: 'sonnet', effort: 'low' },
+      { label: `qa #${round}`, phase: 'QA', agentType: 'worker', schema: QA, model: 'sonnet', effort: 'low' },
     ),
   ])
 

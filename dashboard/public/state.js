@@ -59,6 +59,7 @@ export function normAgent(a, extra = {}) {
     tools: tools(a.tools),
     graph: graph(a.graph),
     series: series(a.series),
+    ctx: { base: num(obj(a.ctx).base) ?? 0, peak: num(obj(a.ctx).peak) ?? 0 },
     // orkestratöre özgü
     goal: str(a.goal), answer: str(a.answer), turns: num(a.turns) ?? 0, since: num(a.since), tool: str(a.tool),
   }
@@ -122,6 +123,7 @@ export function normSummary(x) {
   return {
     id: str(o.id), repo: str(o.repo), firstAt: num(o.firstAt) ?? 0, receivedAt: num(o.receivedAt) ?? 0,
     startedAt: num(o.startedAt) ?? num(o.firstAt) ?? 0, lastAt: num(o.lastAt) ?? num(o.receivedAt) ?? 0,
+    tag: /^[a-z0-9-]{1,30}$/.test(str(o.tag)) ? str(o.tag) : '',
     title: str(o.title), model: str(o.model), status: o.status == null ? null : mainKey(o.status), live: o.live === true,
     totals: normTotals(o.totals), subs: num(o.subs) ?? 0,
     runs: each(o.runs, r => (str(r?.taskId) ? { taskId: str(r.taskId), name: str(r.name), status: stKey(r.status), startedAt: num(r.startedAt) ?? 0, endedAt: num(r.endedAt) } : null)),

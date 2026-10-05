@@ -36,6 +36,12 @@ Cloud ortamında (setup script'i `install.sh` çalıştıran) `WF_MONITOR_URL=ht
 - **Canlı → agent detayı:** token kırılımı, cache isabeti, cache israfı uyarısı ve **bağlam eğrisi** (her model
   isteğinde bağlam büyüklüğü, cache okuma payı, en büyük sıçramalar ve öncesindeki araç çağrıları).
 - **Canlı → karşılaştır:** seçili workflow run'ını aynı adlı başka bir run'la phase/agent bazında token farkıyla yan yana.
+- **Canlı → Token önerileri:** session'ın verisinden somut tespitler: Şef'in (ana session) payı, yüksek taban bağlamlı
+  agent tipleri (`worker` önerisi), çok tur atan agent'lar, grafı kullanmayan agent'lar, cache israfı, en büyük sıçrama.
+- **Token → Deneyler:** ilk mesajına `[deney:ad]` yazılan session'lar etiketlenir ve etiket başına ortancalarla
+  karşılaştırılır. `[deney:grafsiz]` o session'da graphify'ı kapatır (mod graf çağrılarını reddeder), `[deney:grafli]`
+  ile aynı görev çalıştırılıp graphify'ın token etkisi ölçülür. Graf varken mod her alt agent'ın görevine kısa bir
+  graphify ipucu ekler.
 - **Canlı → Eserler:** session'ın açtığı PR'lar, commit'ler ve değişen dosyalar; her birinin yanında onu üreten agent.
 - **Geçmiş:** bütün session'lar; sıralama, arama, sınıf karışımı şeridi.
 - **Evren:** bütün defter tek gökyüzünde. Her session bir yıldız (merkez en eski, dış kollar en yeni;

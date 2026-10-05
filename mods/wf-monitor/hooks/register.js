@@ -56,8 +56,20 @@ let nowMs = 0
 let lastPushAt = 0
 let failStreak = 0 // ardışık başarısız push; geri çekilme için
 let nextTryAt = 0
+let hasGraph = false // repo'da graphify-out var mı (session başında bakılır)
+let expTag = '' // ölçüm deneyi etiketi: ilk mesajda [deney:<ad>]; "grafsiz" graphify'ı kapatır
 
 // ---- saf yardımcılar ----
+
+// Graphify ipucu: her alt agent'ın görevine eklenir (kural değil, araç hatırlatması). Görev zaten anıyorsa eklenmez.
+export const GRAPH_HINT =
+  '\n\n[wf-monitor] Bu repoda bilgi grafı var (graphify-out/): bağlamı önce graftan al — `graphify query "<soru>"`, ' +
+  '`graphify path A B`, `graphify explain X` — sonra yalnız gereken dosyaları aç. Codebase\'i baştan okumak token yakar.'
+export const withGraphHint = prompt => (/graphify/i.test(String(prompt ?? '')) ? prompt : String(prompt ?? '') + GRAPH_HINT)
+export const tagOf = text => /\[deney:([a-z0-9-]{1,30})\]/i.exec(String(text ?? ''))?.[1]?.toLowerCase() ?? ''
+export const noGraphTag = tag => /^(grafs[iı]z|nograph|no-graph)$/.test(tag)
+// grafsız deneyde graf erişimi sayılan çağrılar: graphify komutu/skill/MCP ve graphify-out dosyalarını okumak
+export const touchesGraph = e => graphHit(e) === 'g' || /graphify-out/.test(String(e.file_path ?? e.path ?? e.pattern ?? e.command ?? ''))
 
 function short(s, n) {
   const t = String(s ?? '').replace(/\s+/g, ' ').trim()
@@ -300,7 +312,7 @@ export function addPoint(key, u, t) {
   }
   list.push(p)
   if (list.length > MAX_SERIES) list.splice(1, 1)
-  const g = ctxAgg.get(key) ?? ctxAgg.set(key, { peak: 0, byTool: {}, jumps: [] }).get(key)
+  const g = ctxAgg.get(key) ?? ctxAgg.set(key, { base: p.c, peak: 0, byTool: {}, jumps: [] }).get(key)
   g.peak = Math.max(g.peak, p.c)
   const d = prev ? p.c - prev.c - prev.o : 0
   if (d > 0 && b?.n) {
@@ -316,7 +328,7 @@ export function addPoint(key, u, t) {
 }
 const ctxOf = key => {
   const g = ctxAgg.get(key)
-  return g ? { peak: g.peak, byTool: { ...g.byTool }, jumps: g.jumps.slice() } : null
+  return g ? { base: g.base, peak: g.peak, byTool: { ...g.byTool }, jumps: g.jumps.slice() } : null
 }
 
 function since(ms) {
@@ -788,6 +800,7 @@ export function register(on) {
     }
     nowMs = await $.clock.now()
     epoch = nowMs
+    hasGraph = await $.fs.list(`${repo?.root ?? e.cwd}/graphify-out`).then(xs => (Array.isArray(xs) ? xs : xs?.value ?? []).some(f => f?.name === 'graph.json'), () => false)
     const surfaces = await $.session.surfaces()
     drawing = surfaces.some(s => s === 'terminal' || s === 'desktop')
     await $.command
@@ -842,6 +855,8 @@ export function register(on) {
   // Her araç çağrısı: orkestratörün ya da agent'ın son adımları, araç karışımı, graphify kullanımı.
   // Tahminle bitmiş run'ın agent'ı çalışıyorsa run sürüyordur.
   on('tool.call', async ($, e, next) => {
+    // grafsız deney: graf erişimi reddedilir ve sayılmaz (karşılaştırma temiz kalsın)
+    if (noGraphTag(expTag) && touchesGraph(e)) return { deny: 'Bu ölçüm session\'ında (grafsız deney) graphify kapalı; dosyaları doğrudan oku.' }
     const t = await $.clock.now()
     const text = short(mask(String(describe(e)).slice(0, 2000)), 160)
     if (!e.agentId) {
@@ -882,6 +897,7 @@ export function register(on) {
     main.turns++
     const text = String(e.text ?? '').trim()
     if (text && !/^<(task-notification|system-reminder)/.test(text)) main.goal = cut(text, 300)
+    if (!expTag && tagOf(text) && host) host.session.tag = expTag = tagOf(text)
     Object.assign(main, { status: 'thinking', tool: null, since: t })
     touch()
     return next(e)
@@ -919,6 +935,8 @@ export function register(on) {
 
   // Agent aracıyla doğan alt agent: açıklaması, tipi, modeli, prompt'un başı, ebeveyni
   on('agent.spawn', async ($, e, next) => {
+    // graf varsa (ve grafsız deney değilse) alt agent'ın görevine graphify ipucu eklenir
+    if (hasGraph && !noGraphTag(expTag) && e.subagentType !== 'fork') e = { ...e, prompt: withGraphHint(e.prompt) }
     const res = await next(e)
     if (res?.agentId && !res.deny) {
       subs.set(res.agentId, {

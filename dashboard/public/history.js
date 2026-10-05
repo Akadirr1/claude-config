@@ -52,7 +52,7 @@ export function renderHistory() {
       h('tbody', {}, rows.map(x => h('tr', { tabindex: '0', class: 'clickable', onclick: () => api.openSession(x.id), onkeydown: e => e.key === 'Enter' && api.openSession(x.id) },
         h('td', { class: 'num nowrap' }, x.live ? h('span', { class: 'live-dot', tip: 'şu an çalışıyor' }) : null, fmtDateTime(x.startedAt)),
         h('td', { class: 'mono', text: x.repo || '—' }),
-        h('td', { class: 'goal' }, h('span', { class: 'goal-t', text: x.title || '—' }), mix(x)),
+        h('td', { class: 'goal' }, h('span', { class: 'goal-t' }, x.tag ? h('span', { class: 'tag-chip', text: x.tag }) : null, x.title || '—'), mix(x)),
         h('td', { class: 'mono', text: model(x.model) }),
         h('td', { class: 'num', text: fmtDur(x.lastAt - x.startedAt) }),
         h('td', { class: 'num', text: String(x.totals.agents) }),
