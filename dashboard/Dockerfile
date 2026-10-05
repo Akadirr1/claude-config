@@ -1,6 +1,7 @@
 FROM node:22-alpine
 WORKDIR /app
-COPY server.mjs store.mjs ./
+# sunucu modülleri: server.mjs, store.mjs, automations.mjs (yenisi eklenince de imaja girsin)
+COPY *.mjs ./
 COPY public ./public
 # Kalıcı defter: Coolify'da bu yola bir volume bağla (Storages → /app/data); bağlanmazsa her deploy'da sıfırlanır
 RUN mkdir -p /app/data && chown node:node /app/data
