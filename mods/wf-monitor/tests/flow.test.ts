@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
-import { addUsage, artifactsOf, fit, graphHit, mask } from '../hooks/register.js'
+import { addUsage, artifactsOf, fit, graphHit, mask, tagOf, withGraphHint } from '../hooks/register.js'
 
 const DIR = '/s/workflows/run1'
 const SCRIPT = `export const meta = {
@@ -83,7 +83,11 @@ function world(on, surfaces, env = {}, rows = ROUND1, repo = { root: '/w/claude-
     if (name === 'script.js') return { value: SCRIPT }
     throw new Error('ENOENT ' + path)
   })
-  on('fs.list', async () => {
+  on('fs.list', async ($, e) => {
+    if (String(e?.path ?? e).endsWith('graphify-out')) {
+      if (ctl.graph) return { value: [{ name: 'graph.json', kind: 'file', size: 10, mtimeMs: 0, isLink: false }] }
+      throw new Error('ENOENT')
+    }
     ctl.lists++
     if (ctl.slowList) await clock.sleep(300)
     return {
@@ -115,7 +119,7 @@ function world(on, surfaces, env = {}, rows = ROUND1, repo = { root: '/w/claude-
   on('turn.step', async function* ($, e) {
     return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: ctl.stepUsage ?? null }
   })
-  on('agent.spawn', ($, e) => ({ model: 'claude-sonnet-5-5', agentId: ctl.spawnId ?? 'sub00001' }))
+  on('agent.spawn', ($, e) => ((ctl.spawnPrompt = e.prompt), { model: 'claude-sonnet-5-5', agentId: ctl.spawnId ?? 'sub00001' }))
   return { clock, files, reads, posts, ctl }
 }
 
@@ -788,5 +792,41 @@ describe('wf-monitor', () => {
     expect(artifactsOf({ tool: 'mcp__github__list_pull_requests' }, { result: 'https://github.com/x/y/pull/1' }).prs).toEqual([])
     expect(artifactsOf({ tool: 'Bash', command: 'git commit -m x' }, { result: { stdout: '[detached HEAD 89abcde] wip' } }).commits).toEqual([{ branch: 'detached HEAD', sha: '89abcde', msg: 'wip' }])
     expect(artifactsOf({ tool: 'Bash', command: 'git commit --amend' }, { result: { stdout: '[main 0123abc] fix' } }).commits).toEqual([{ branch: 'main', sha: '0123abc', msg: 'fix' }])
+  })
+  test('graphify ipucu: graf varken alt agent görevine eklenir, görev zaten anıyorsa eklenmez', async ($, on) => {
+    const { ctl } = world(on, [], POST_ENV)
+    ctl.graph = true
+    await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+    await $.agent.spawn({ tool_use_id: 'u1', prompt: 'Find callers of x', description: 'callers', subagentType: 'Explore' })
+    expect(ctl.spawnPrompt).toContain('graphify query')
+    await $.agent.spawn({ tool_use_id: 'u2', prompt: 'graphify path a b ile bak', description: 'p', subagentType: 'Explore' })
+    expect(ctl.spawnPrompt).toBe('graphify path a b ile bak')
+    expect(withGraphHint('x')).toContain('[wf-monitor]')
+  })
+
+  test('graf yoksa ipucu yok', async ($, on) => {
+    const { ctl } = world(on, [], POST_ENV)
+    await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+    await $.agent.spawn({ tool_use_id: 'u1', prompt: 'Find callers of x', description: 'callers', subagentType: 'Explore' })
+    expect(ctl.spawnPrompt).toBe('Find callers of x')
+  })
+
+  test('deney etiketi: payload\'a gider; grafsız deneyde graphify reddedilir, sayılmaz, ipucu eklenmez', async ($, on) => {
+    const { clock, posts, ctl } = world(on, [], POST_ENV)
+    ctl.graph = true
+    await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+    await $.turn.start({ text: '[deney:grafsiz] dashboard akışını açıkla', turnId: 'T1' })
+    const r = await $.tool.call({ tool: 'Bash', command: 'graphify query "sse"' })
+    expect(r.deny).toContain('graphify kapalı')
+    const r2 = await $.tool.call({ tool: 'Read', file_path: '/w/graphify-out/GRAPH_REPORT.md' })
+    expect(r2.deny).toBeTruthy()
+    await $.tool.call({ tool: 'Read', file_path: '/w/a.js' })
+    await $.agent.spawn({ tool_use_id: 'u1', prompt: 'Find callers of x', description: 'callers', subagentType: 'Explore' })
+    expect(ctl.spawnPrompt).toBe('Find callers of x')
+    await clock.advance(2100)
+    const b = lastPost(posts).body
+    expect(b.session.tag).toBe('grafsiz')
+    expect(b.main.graph).toEqual({ g: 0, r: 1 })
+    expect(tagOf('[DENEY:Grafli] x')).toBe('grafli')
   })
 })
