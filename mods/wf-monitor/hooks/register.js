@@ -41,7 +41,8 @@ const usage = new Map() // 'main' | agentId -> { byModel: { model: { in, out, cr
 const toolMix = new Map() // 'main' | agentId -> { araç: sayı }
 const graphUse = new Map() // 'main' | agentId -> { g: graphify çağrısı, r: Read/Grep/Glob }
 const series = new Map() // 'main' | agentId -> { t, c: bağlam, o: çıkış, r: cache read, w: cache write, x: araçlar }[]
-const between = new Map() // 'main' | agentId -> son istekten beri çağrılan araçlar
+const between = new Map() // 'main' | agentId -> son istekten beri çağrılan araçlar { xs: ilk 3 metin, n, tools: { ad: sayı } }
+const ctxAgg = new Map() // 'main' | agentId -> { peak, byTool, jumps }: bütün istekler üzerinden (seri kırpılsa da doğru)
 const sent = new Map() // varlık anahtarı -> sunucuya teslim edilen imza
 const art = { files: new Map(), commits: new Map(), prs: new Map() } // session'ın eserleri: değişen dosya, commit, PR
 const main = { status: 'idle', since: 0, tool: null, goal: '', turns: 0, answer: '', model: null, steps: [] }
@@ -150,6 +151,9 @@ export function fit(body) {
   const over = () => enc.encode((s = JSON.stringify(body))).length > MAX_BYTES
   if (!over()) return s
   const agents = () => [...body.subs, ...body.runs.flatMap(r => r.agents)]
+  // önce yalnız seriler kısalır (eğri için son 40 istek yeter; zirve ve sıçramalar ctx'te tam)
+  for (const a of [...(body.main ? [body.main] : []), ...agents()]) if (a.series) a.series = a.series.slice(-40)
+  if (!over()) return s
   for (const n of [3, 0]) {
     if (body.main) {
       body.main.steps = body.main.steps.slice(-Math.max(n, 5))
@@ -201,12 +205,14 @@ export function graphHit(e) {
   return READS.has(e.tool) ? 'r' : null
 }
 
-function countTool(key, e) {
-  const xs = between.get(key) ?? between.set(key, []).get(key)
-  if (xs.length < 4) xs.push(short(String(describe(e)).slice(0, 400), 70))
-  else xs[3] = `+${xs.length - 3 + 1} araç daha`
-  const mix = toolMix.get(key) ?? toolMix.set(key, {}).get(key)
+// text: maskelenmiş adım metni (önce maske, sonra kırpma; kırpılmış sırrı maske yakalayamaz)
+function countTool(key, e, text) {
   const name = clip(String(e.tool ?? '?'), 60)
+  const b = between.get(key) ?? between.set(key, { xs: [], n: 0, tools: {} }).get(key)
+  b.n++
+  if (b.xs.length < 3) b.xs.push(short(text, 70))
+  if (b.tools[name] || Object.keys(b.tools).length < 20) b.tools[name] = (b.tools[name] ?? 0) + 1
+  const mix = toolMix.get(key) ?? toolMix.set(key, {}).get(key)
   if (Object.keys(mix).length < 40 || mix[name]) mix[name] = (mix[name] ?? 0) + 1
   const hit = graphHit(e)
   if (hit) {
@@ -279,14 +285,38 @@ const artItems = () => [
 ]
 
 // İstek noktası: bağlam büyüklüğü ve önceki istekten beri çağrılan araçlar (bağlamı kim şişirdi)
+// Sıçrama = bağlam artışı − önceki çıkış (o da bağlama girer); araç adlarına çağrı sayısıyla orantılı bölünür.
+// Seri MAX_SERIES'te inceltilir (ilk nokta kalır); i istek numarasıdır, aradaki boşluk sıçrama sayılmaz.
 export function addPoint(key, u, t) {
   if (!u) return
-  const n = k => (Number.isFinite(u[k]) ? u[k] : 0)
+  const n = k => (Number.isFinite(u[k]) && u[k] > 0 ? u[k] : 0)
   const list = series.get(key) ?? series.set(key, []).get(key)
-  const xs = between.get(key) ?? []
-  list.push({ t, c: n('input_tokens') + n('cache_read_input_tokens') + n('cache_creation_input_tokens'), o: n('output_tokens'), r: n('cache_read_input_tokens'), w: n('cache_creation_input_tokens'), x: xs.length < 4 ? xs : xs.slice(0, 4) })
+  const b = between.get(key)
   between.delete(key)
+  const prev = list.at(-1)
+  const p = {
+    t, i: (prev?.i ?? 0) + 1, c: n('input_tokens') + n('cache_read_input_tokens') + n('cache_creation_input_tokens'), o: n('output_tokens'),
+    r: n('cache_read_input_tokens'), w: n('cache_creation_input_tokens'), x: !b ? [] : b.n > 3 ? [...b.xs, `+${b.n - 3} araç daha`] : b.xs,
+  }
+  list.push(p)
   if (list.length > MAX_SERIES) list.splice(1, 1)
+  const g = ctxAgg.get(key) ?? ctxAgg.set(key, { peak: 0, byTool: {}, jumps: [] }).get(key)
+  g.peak = Math.max(g.peak, p.c)
+  const d = prev ? p.c - prev.c - prev.o : 0
+  if (d > 0 && b?.n) {
+    g.jumps.push({ d, x: p.x.join(' · ') })
+    g.jumps = g.jumps.sort((x, y) => y.d - x.d).slice(0, 3)
+    for (const [name, k] of Object.entries(b.tools)) g.byTool[name] = (g.byTool[name] ?? 0) + (d * k) / b.n
+  }
+  // run'ı ya da alt agent'ı bilinmeyen loop'lar: en yeni MAX_UNKNOWN tanesi
+  if (key !== 'main' && !runOf(key) && !subs.has(key)) {
+    const unknown = [...series.keys()].filter(id => id !== 'main' && !runOf(id) && !subs.has(id))
+    for (const id of unknown.slice(0, -MAX_UNKNOWN)) series.delete(id), ctxAgg.delete(id), between.delete(id)
+  }
+}
+const ctxOf = key => {
+  const g = ctxAgg.get(key)
+  return g ? { peak: g.peak, byTool: { ...g.byTool }, jumps: g.jumps.slice() } : null
 }
 
 function since(ms) {
@@ -387,6 +417,7 @@ function prune() {
     graphUse.delete(id)
     series.delete(id)
     between.delete(id)
+    ctxAgg.delete(id)
   }
   const doneRuns = [...runs.values()].filter(r => r.status !== 'running' && (delivered('r:' + r.taskId) || !host?.post) && !rechecking(r))
   for (const r of doneRuns.slice(0, -MAX_RUNS)) {
@@ -412,7 +443,7 @@ function trimLog() {
 function viewMain() {
   return {
     startedAt: epoch, status: main.status, since: main.since, tool: main.tool, goal: main.goal, turns: main.turns, answer: main.answer,
-    model: main.model, steps: main.steps.slice(), usage: usage.get('main') ?? null, series: (series.get('main') ?? []).slice(),
+    model: main.model, steps: main.steps.slice(), usage: usage.get('main') ?? null, series: (series.get('main') ?? []).slice(), ctx: ctxOf('main'),
     tools: toolMix.get('main') ?? {}, graph: graphUse.get('main') ?? { g: 0, r: 0 },
   }
 }
@@ -425,7 +456,7 @@ function viewSub(x) {
     status: x.status, startedAt: x.startedAt, endedAt: x.endedAt, background: x.background,
     steps: log ? log.list.slice() : [], result: x.result,
     usage: usage.get(x.id) ?? null, tools: toolMix.get(x.id) ?? {}, graph: graphUse.get(x.id) ?? { g: 0, r: 0 },
-    series: (series.get(x.id) ?? []).slice(),
+    series: (series.get(x.id) ?? []).slice(), ctx: ctxOf(x.id),
   }
 }
 
@@ -534,6 +565,7 @@ function view(r) {
       tools: toolMix.get(a.id) ?? {},
       graph: graphUse.get(a.id) ?? { g: 0, r: 0 },
       series: (series.get(a.id) ?? []).slice(),
+      ctx: ctxOf(a.id),
     }
   })
   return {
@@ -815,7 +847,7 @@ export function register(on) {
     if (!e.agentId) {
       main.steps.push({ t, text, tool: clip(String(e.tool ?? ''), 60) })
       if (main.steps.length > MAX_MAIN_STEPS) main.steps.shift()
-      countTool('main', e)
+      countTool('main', e, text)
       Object.assign(main, { status: 'tool', tool: clip(String(e.tool ?? ''), 60), since: t })
       touch()
       try {
@@ -833,7 +865,7 @@ export function register(on) {
       log.list.push({ t, text })
       if (log.list.length > MAX_STEPS) log.list.shift()
       stepLog.set(e.agentId, log)
-      countTool(e.agentId, e)
+      countTool(e.agentId, e, text)
       if (!run && !sub) trimLog()
       touch()
     }

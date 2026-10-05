@@ -1,4 +1,5 @@
 // Geçmiş: kalıcı defterdeki bütün session'lar. Sıralanabilir tablo, arama; satır canlı görünümde açılır.
+import { unit, amtNum } from './util.js'
 import { $, h, put, fmtCost, fmtTok, fmtDur, fmtDateTime, fmtPct, model, str, totalTok, glyph, CLASS_ORDER, className } from './util.js'
 import { S } from './state.js'
 
@@ -22,10 +23,11 @@ const val = (x, k) => ({
 // sınıf karışımı: session'ın maliyetinin sınıflara dağılımı (ince yığılmış şerit)
 function mix(x) {
   const by = x.totals.byClass
-  const tot = Object.values(by).reduce((n, c) => n + c.cost, 0)
+  const v = c => (unit() === 'usd' ? by[c]?.cost : by[c]?.tokens) ?? 0
+  const tot = CLASS_ORDER.reduce((n, c) => n + v(c), 0)
   if (!tot) return null
-  return h('span', { class: 'mix', tip: CLASS_ORDER.filter(c => by[c]?.cost).map(c => `${className(c)} ${fmtCost(by[c].cost)}`).join(' · ') },
-    CLASS_ORDER.filter(c => by[c]?.cost).map(c => h('i', { class: `c-${c}`, style: `flex-grow:${by[c].cost / tot}` })))
+  return h('span', { class: 'mix', tip: CLASS_ORDER.filter(v).map(c => `${className(c)} ${amtNum(by[c].cost, by[c].tokens)}`).join(' · ') },
+    CLASS_ORDER.filter(v).map(c => h('i', { class: `c-${c}`, style: `flex-grow:${v(c) / tot}` })))
 }
 
 export function renderHistory() {
