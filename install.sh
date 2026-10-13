@@ -18,6 +18,10 @@ npx -y skills add tt-a1i/archify --skill archify --agent claude-code --global --
 mkdir -p ~/.claude/agents
 cp "$DIR"/agents/*.md ~/.claude/agents/ && echo "OK: agents" >> $LOG || echo "FAIL: agents" >> $LOG
 
+# Skill'ler
+mkdir -p ~/.claude/skills
+cp -r "$DIR"/skills/* ~/.claude/skills/ && echo "OK: skills" >> $LOG || echo "FAIL: skills" >> $LOG
+
 # Workflow'lar: yalnızca /ad ile elle çağrılır, kendiliğinden çalışmaz
 mkdir -p ~/.claude/workflows
 cp "$DIR"/workflows/*.js ~/.claude/workflows/ && echo "OK: workflows" >> $LOG || echo "FAIL: workflows" >> $LOG
