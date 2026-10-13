@@ -1,28 +1,24 @@
 <!-- claude-config -->
 # claude-config
 ## Çalışma
-- Testler ponytail açısından gereksiz kod sayılmaz.
 - İstenenin dışında bir sorun ya da daha iyi bir yol görürsen uygulamadan önce söyle.
+- Emin olmadığın ya da varsayım yaptığın yeri açıkça söyle, tahmini gerçek gibi yazma.
+- "Bitti" demeden önce kanıtla: testi ya da build'i çalıştır, arayüz işinde ekran görüntüsüne bak.
+- Testler ponytail açısından gereksiz kod sayılmaz.
+- Aynı hata bir projede ikinci kez çıkarsa o projenin CLAUDE.md'sine tek satırlık kural öner.
 
-## Orkestrasyon
-- Birden fazla bağımsız parçası olan ya da çok dosya okumayı gerektiren işlerde şef ol: işi alt agent'lara dağıt, kendin planla, birleştir ve kontrol et. Bağımsız parçaları aynı anda yolla, birbirine bağlı adımları sırayla yap.
-- Alt agent'a kısa brief ver: hedef, hangi dosya ve klasörlerin onun olduğu, bitti kriteri. Aynı dosyaya iki agent'ı aynı anda yollama. Ortak dosyalara dokunan büyük paralel işlerde her agent kendi worktree'sinde çalışsın, bitince sen birleştir.
-- Basit tarama ve bağlam toplama işlerinde alt agent'ı Sonnet ile çalıştır.
-- Biten her parçadan sonra commit at ki session kesilirse iş kaybolmasın.
+## Alt agent'lar
+- Dosya tarama ve araştırma gibi salt okuma işlerini alt agent'a (Sonnet) ver; sana kısa özet dönsün.
+- Yazan agent'ları paralel çalıştıracaksan dokunacakları dosyalar ayrı olsun; ortak dosya varsa her biri kendi worktree'sinde çalışsın, sen birleştir.
+- Alt agent'lar `git reset --hard`, `git clean` ve `git checkout .` kullanmasın.
+- Biten her parçadan sonra commit at.
 
 ## Review
-Kod değiştiren her turun sonunda, son mesajdan önce diff'e iki review'ı paralel subagent olarak çalıştır: CODE ve SECURITY. Güvenlik review'ı kod review'ının tasarım kararı sayıp geçtiği şeyi yakalar, bu yüzden küçük değişiklikte de ikisi birden çalışır.
-- Seviye: büyük değişiklik ve para, kimlik doğrulama ya da kullanıcı verisi → `reviewer-xhigh`. Büyük değişiklik, refactor ya da para, kimlik doğrulama veya kullanıcı verisine (başvuru formları dahil) dokunan değişiklik → `reviewer-high`. Geri kalan her şey → `reviewer-medium`.
-- Son mesajda her review'ın sonucunu tek satırla yaz, "bulgu yok" dahil. Uygulamadığın bulguyu gerekçesiyle söyle. Subagent çalışmadıysa bunu açıkça belirt.
-- Plan bitince bütün branch'i bir kez `fable-reviewer`'a review ettir.
-- `/feature` workflow'u CODE+SECURITY review'ı kendi içinde yapar; onun sonucu geldiğinde bu iki review'ı tekrar çalıştırma.
+- Para, kimlik doğrulama ya da kullanıcı verisine (başvuru formları dahil) dokunan değişiklikte bitirmeden önce diff'i `reviewer` agent'ına ver. Diğer işlerde review'ı ben isteyince çalıştır.
+- `fable-reviewer`'ı sadece ben istediğimde çalıştır.
 
 ## Commit ve PR
 - Commit ve PR'lara Claude atfı ekleme: Co-Authored-By, "Generated with Claude Code", Claude-Session satırı ve session linki olmasın.
 
-## Archify
-- Diyagramı bana doğrudan gönder. Repoda tutmamı istersem `docs/diagrams/` altına JSON kaynağıyla birlikte commit'le.
-
-## Graphify
-- Repoda `graphify-out/` yoksa oturum başında `graphify update .` ile üret. Push'tan önce güncelle ve `graphify-out/`'u da commit'le.
-- `.gitignore`'da şunlar olsun: `graphify-out/????-??-??/`, `graphify-out/cache/`, `graphify-out/manifest.json`.
+## Diyagram
+- Archify diyagramını bana doğrudan gönder; repoya ancak istersem `docs/diagrams/` altına JSON kaynağıyla commit'le.
